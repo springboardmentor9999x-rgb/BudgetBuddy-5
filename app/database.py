@@ -1,17 +1,39 @@
-from sqlalchemy import create_engine
-from dotenv import load_dotenv
 import os
+
+from dotenv import load_dotenv
+from sqlalchemy import create_engine
+from sqlalchemy.orm import declarative_base, sessionmaker
 
 load_dotenv()
 
-DATABASE_URL = os.getenv("postgresql://postgres:Nisarga0505@localhost:5432/budgetbuddy")
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL not found in .env")
 
 engine = create_engine(DATABASE_URL)
 
+SessionLocal = sessionmaker(
+    autocommit=False,
+    autoflush=False,
+    bind=engine
+)
+
+Base = declarative_base()
+
+
+def get_db():
+    db = SessionLocal()
+
+    try:
+        yield db
+    finally:
+        db.close()
+
+
 try:
-    connection = engine.connect()
-    print("Connected to PostgreSQL Successfully!")
-    connection.close()
+    with engine.connect():
+        print("Connected to PostgreSQL Successfully!")
 except Exception as e:
     print("Connection Failed")
     print(e)
