@@ -1,0 +1,109 @@
+/* ==========================================
+   INCOME FORM
+   ========================================== */
+
+.income-form {
+    width: 100%;
+    max-width: 900px;
+    margin: 30px auto;
+    padding: 25px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+    box-sizing: border-box;
+}
+
+.income-form h2 {
+    margin: 0 0 20px 0;
+    font-size: 24px;
+    color: #222;
+}
+
+.income-form form {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+/* Inputs, selects and textarea */
+
+.income-form input,
+.income-form select,
+.income-form textarea {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid #d1d5db;
+    border-radius: 7px;
+    font-size: 14px;
+    box-sizing: border-box;
+    background: #fff;
+    color: #333;
+}
+
+.income-form input:focus,
+.income-form select:focus,
+.income-form textarea:focus {
+    outline: none;
+    border-color: #3f51e8;
+    box-shadow: 0 0 0 2px rgba(63, 81, 232, 0.1);
+}
+
+/* Description takes full width */
+
+.income-form textarea {
+    min-height: 90px;
+    resize: vertical;
+    grid-column: 1 / -1;
+}
+
+/* Button */
+
+.income-form button {
+    grid-column: 1 / -1;
+
+    padding: 13px 20px;
+
+    border: none;
+    border-radius: 7px;
+
+    background: #3f51e8;
+    color: white;
+
+    font-size: 16px;
+    font-weight: 600;
+
+    cursor: pointer;
+
+    transition: 0.2s;
+}
+
+.income-form button:hover {
+    background: #3042d5;
+}
+
+/* No bank message */
+
+.income-form p {
+    font-size: 14px;
+}
+
+/* ==========================================
+   MOBILE
+   ========================================== */
+
+@media (max-width: 700px) {
+
+    .income-form {
+        margin: 20px 10px;
+        padding: 18px;
+    }
+
+    .income-form form {
+        grid-template-columns: 1fr;
+    }
+
+    .income-form textarea,
+    .income-form button {
+        grid-column: auto;
+    }
+}
