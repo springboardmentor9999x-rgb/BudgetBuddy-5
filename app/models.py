@@ -11,6 +11,7 @@ from sqlalchemy import (
 )
 from app.database import Base
 from datetime import datetime, date
+from sqlalchemy.sql import func
 
 # =========================
 # USER
@@ -358,15 +359,10 @@ class Profile(Base):
 # =========================
 # NOTIFICATION
 # =========================
-
 class Notification(Base):
     __tablename__ = "notifications"
 
-    id = Column(
-        Integer,
-        primary_key=True,
-        index=True
-    )
+    id = Column(Integer, primary_key=True, index=True)
 
     user_id = Column(
         Integer,
@@ -375,13 +371,14 @@ class Notification(Base):
     )
 
     message = Column(
-        Text,
+        String,
         nullable=False
     )
 
     notification_type = Column(
-        String(50),
-        nullable=False
+        String,
+        nullable=False,
+        default="info"
     )
 
     is_read = Column(
@@ -391,8 +388,8 @@ class Notification(Base):
     )
 
     created_at = Column(
-        DateTime,
-        default=datetime.utcnow,
+        DateTime(timezone=True),
+        server_default=func.now(),
         nullable=False
     )
 

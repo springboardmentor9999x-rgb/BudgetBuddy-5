@@ -153,9 +153,18 @@ function Sidebar() {
                 <li style={{ marginBottom: "15px" }}>
                     📈 Reports
                 </li>
-
+                
+                {/* NOTIFICATION */}
                 <li style={{ marginBottom: "15px" }}>
-                    🔔 Notifications
+                    <Link
+                        to="/notifications"
+                        style={{
+                            color: "white",
+                            textDecoration: "none",
+                        }}
+                    >
+                        🔔 Notifications
+                    </Link>
                 </li>
 
 

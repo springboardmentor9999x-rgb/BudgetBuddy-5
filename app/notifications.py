@@ -100,3 +100,36 @@ def mark_notification_as_read(
     db.refresh(notification)
 
     return notification
+
+# ==================================================
+# DELETE NOTIFICATION
+# ==================================================
+
+@router.delete("/{notification_id}")
+def delete_notification(
+    notification_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+
+    notification = (
+        db.query(Notification)
+        .filter(
+            Notification.id == notification_id,
+            Notification.user_id == current_user.id
+        )
+        .first()
+    )
+
+    if notification is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Notification not found"
+        )
+
+    db.delete(notification)
+    db.commit()
+
+    return {
+        "message": "Notification deleted successfully"
+    }

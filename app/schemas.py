@@ -342,17 +342,16 @@ class ProfileResponse(BaseModel):
 # =========================
 # NOTIFICATION SCHEMAS
 # =========================
-
 class NotificationResponse(BaseModel):
     id: int
     user_id: int
     message: str
     notification_type: str
     is_read: bool
-    created_at: datetime
+    created_at: datetime | None = None
 
-    model_config = ConfigDict(from_attributes=True)
-
+    class Config:
+        from_attributes = True
 
 # =========================
 # REPORT SCHEMAS

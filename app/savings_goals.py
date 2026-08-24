@@ -1,25 +1,25 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
-from sqlalchemy import func
 from datetime import date
 
-from app.database import get_db
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func
+from sqlalchemy.orm import Session
 
+from app.database import get_db
 from app.models import (
     SavingsGoal,
     SavingsTransaction,
-    User,
     Income,
-    Expense
+    Expense,
+    User,
+    Notification
 )
-
 from app.schemas import (
     SavingsGoalCreate,
     SavingsGoalUpdate,
     SavingsGoalResponse,
     SavingsGoalAddAmount,
+    SavingsTransactionResponse
 )
-
 from app.users import get_current_user
 
 
@@ -38,24 +38,40 @@ router = APIRouter(
     response_model=SavingsGoalResponse,
     status_code=status.HTTP_201_CREATED
 )
-def create_goal(
-    data: SavingsGoalCreate,
+def create_savings_goal(
+    goal_data: SavingsGoalCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
 
-    goal = SavingsGoal(
+    new_goal = SavingsGoal(
         user_id=current_user.id,
-        goal_name=data.goal_name.strip(),
-        target_amount=data.target_amount,
-        current_amount=data.current_amount or 0
+        goal_name=goal_data.goal_name,
+        target_amount=goal_data.target_amount,
+        current_amount=goal_data.current_amount
     )
 
-    db.add(goal)
+    db.add(new_goal)
     db.commit()
-    db.refresh(goal)
+    db.refresh(new_goal)
 
-    return goal
+    # ------------------------------------------
+    # NOTIFICATION: SAVINGS GOAL CREATED
+    # ------------------------------------------
+
+    notification = Notification(
+        user_id=current_user.id,
+        message=(
+            f"Savings goal '{new_goal.goal_name}' "
+            f"created successfully."
+        ),
+        notification_type="savings"
+    )
+
+    db.add(notification)
+    db.commit()
+
+    return new_goal
 
 
 # ==================================================
@@ -66,7 +82,7 @@ def create_goal(
     "",
     response_model=list[SavingsGoalResponse]
 )
-def get_goals(
+def get_all_savings_goals(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -76,7 +92,6 @@ def get_goals(
         .filter(
             SavingsGoal.user_id == current_user.id
         )
-        .order_by(SavingsGoal.id.desc())
         .all()
     )
 
@@ -84,65 +99,39 @@ def get_goals(
 
 
 # ==================================================
-# GET AVAILABLE BALANCE
-# Income - Expenses - Savings
+# GET SINGLE SAVINGS GOAL
 # ==================================================
 
-@router.get("/available-balance")
-def get_available_balance(
+@router.get(
+    "/{goal_id}",
+    response_model=SavingsGoalResponse
+)
+def get_savings_goal(
+    goal_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
 
-    total_income = (
-        db.query(
-            func.coalesce(func.sum(Income.amount), 0)
-        )
+    goal = (
+        db.query(SavingsGoal)
         .filter(
-            Income.user_id == current_user.id
+            SavingsGoal.id == goal_id,
+            SavingsGoal.user_id == current_user.id
         )
-        .scalar()
+        .first()
     )
 
-    total_expense = (
-        db.query(
-            func.coalesce(func.sum(Expense.amount), 0)
+    if goal is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Savings goal not found"
         )
-        .filter(
-            Expense.user_id == current_user.id
-        )
-        .scalar()
-    )
 
-    total_saved = (
-        db.query(
-            func.coalesce(
-                func.sum(SavingsTransaction.amount),
-                0
-            )
-        )
-        .filter(
-            SavingsTransaction.user_id == current_user.id
-        )
-        .scalar()
-    )
-
-    available_balance = (
-        float(total_income)
-        - float(total_expense)
-        - float(total_saved)
-    )
-
-    return {
-        "total_income": float(total_income),
-        "total_expense": float(total_expense),
-        "total_saved": float(total_saved),
-        "available_balance": available_balance
-    }
+    return goal
 
 
 # ==================================================
-# ADD AMOUNT TO SAVINGS GOAL
+# ADD MONEY TO SAVINGS GOAL
 # ==================================================
 
 @router.post(
@@ -156,7 +145,10 @@ def add_amount(
     current_user: User = Depends(get_current_user)
 ):
 
-    # Find savings goal of current user
+    # ------------------------------------------
+    # FIND SAVINGS GOAL
+    # ------------------------------------------
+
     goal = (
         db.query(SavingsGoal)
         .filter(
@@ -168,21 +160,20 @@ def add_amount(
 
     if goal is None:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=404,
             detail="Savings goal not found"
         )
 
-    # Validate amount
-    if data.amount <= 0:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Amount must be greater than 0"
-        )
+    # ------------------------------------------
+    # CALCULATE TOTAL INCOME
+    # ------------------------------------------
 
-    # Calculate total income
     total_income = (
         db.query(
-            func.coalesce(func.sum(Income.amount), 0)
+            func.coalesce(
+                func.sum(Income.amount),
+                0
+            )
         )
         .filter(
             Income.user_id == current_user.id
@@ -190,10 +181,16 @@ def add_amount(
         .scalar()
     )
 
-    # Calculate total expenses
+    # ------------------------------------------
+    # CALCULATE TOTAL EXPENSE
+    # ------------------------------------------
+
     total_expense = (
         db.query(
-            func.coalesce(func.sum(Expense.amount), 0)
+            func.coalesce(
+                func.sum(Expense.amount),
+                0
+            )
         )
         .filter(
             Expense.user_id == current_user.id
@@ -201,7 +198,10 @@ def add_amount(
         .scalar()
     )
 
-    # Calculate money already moved to savings
+    # ------------------------------------------
+    # CALCULATE TOTAL SAVED
+    # ------------------------------------------
+
     total_saved = (
         db.query(
             func.coalesce(
@@ -215,31 +215,49 @@ def add_amount(
         .scalar()
     )
 
-    # Available money
+    # ------------------------------------------
+    # CALCULATE AVAILABLE BALANCE
+    # ------------------------------------------
+
     available_balance = (
         float(total_income)
         - float(total_expense)
         - float(total_saved)
     )
 
-    # Check sufficient balance
+    # ------------------------------------------
+    # CHECK AVAILABLE BALANCE
+    # ------------------------------------------
+
     if float(data.amount) > available_balance:
+
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=400,
             detail=(
-                "Insufficient available balance. "
+                f"Insufficient available balance. "
                 f"Available amount: ₹{available_balance:.2f}"
             )
         )
 
-    # Add amount to savings goal
-    current_amount = float(goal.current_amount or 0)
+    # ------------------------------------------
+    # STORE OLD AMOUNT
+    # IMPORTANT FOR GOAL REACHED NOTIFICATION
+    # ------------------------------------------
+
+    old_amount = float(goal.current_amount or 0)
+
+    # ------------------------------------------
+    # ADD MONEY TO GOAL
+    # ------------------------------------------
 
     goal.current_amount = (
-        current_amount + float(data.amount)
+        old_amount + float(data.amount)
     )
 
-    # Create savings transaction
+    # ------------------------------------------
+    # CREATE SAVINGS TRANSACTION
+    # ------------------------------------------
+
     transaction = SavingsTransaction(
         goal_id=goal.id,
         user_id=current_user.id,
@@ -248,6 +266,51 @@ def add_amount(
     )
 
     db.add(transaction)
+
+    # ------------------------------------------
+    # NOTIFICATION:
+    # MONEY ADDED TO SAVINGS
+    # ------------------------------------------
+
+    add_notification = Notification(
+        user_id=current_user.id,
+        message=(
+            f"₹{float(data.amount):.2f} added to "
+            f"your savings goal '{goal.goal_name}'."
+        ),
+        notification_type="savings"
+    )
+
+    db.add(add_notification)
+
+    # ------------------------------------------
+    # CHECK IF SAVINGS GOAL IS REACHED
+    # ------------------------------------------
+
+    target_amount = float(goal.target_amount)
+    new_amount = float(goal.current_amount)
+
+    if (
+        old_amount < target_amount
+        and new_amount >= target_amount
+    ):
+
+        goal_reached_notification = Notification(
+            user_id=current_user.id,
+            message=(
+                f"Congratulations! You reached your "
+                f"savings goal '{goal.goal_name}' "
+                f"of ₹{target_amount:.2f}!"
+            ),
+            notification_type="success"
+        )
+
+        db.add(goal_reached_notification)
+
+    # ------------------------------------------
+    # SAVE ALL CHANGES
+    # ------------------------------------------
+
     db.commit()
     db.refresh(goal)
 
@@ -255,65 +318,21 @@ def add_amount(
 
 
 # ==================================================
-# GET ALL SAVINGS TRANSACTIONS
-# FOR OVERALL TRANSACTIONS PAGE
-# IMPORTANT: MUST COME BEFORE "/{goal_id}"
+# GET SAVINGS TRANSACTIONS
 # ==================================================
 
-@router.get("/transactions/all")
-def get_all_savings_transactions(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-
-    transactions = (
-        db.query(
-            SavingsTransaction,
-            SavingsGoal.goal_name
-        )
-        .join(
-            SavingsGoal,
-            SavingsTransaction.goal_id == SavingsGoal.id
-        )
-        .filter(
-            SavingsTransaction.user_id == current_user.id
-        )
-        .order_by(
-            SavingsTransaction.transaction_date.desc(),
-            SavingsTransaction.id.desc()
-        )
-        .all()
-    )
-
-    result = []
-
-    for transaction, goal_name in transactions:
-
-        result.append({
-            "id": transaction.id,
-            "goal_id": transaction.goal_id,
-            "goal_name": goal_name,
-            "amount": float(transaction.amount),
-            "transaction_date": transaction.transaction_date,
-            "created_at": transaction.created_at,
-            "type": "Savings"
-        })
-
-    return result
-
-
-# ==================================================
-# GET SAVINGS GOAL HISTORY
-# ==================================================
-
-@router.get("/{goal_id}/history")
-def get_goal_history(
+@router.get(
+    "/{goal_id}/transactions",
+    response_model=list[SavingsTransactionResponse]
+)
+def get_savings_transactions(
     goal_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
 
-    # Verify goal belongs to current user
+    # Check goal belongs to current user
+
     goal = (
         db.query(SavingsGoal)
         .filter(
@@ -324,8 +343,9 @@ def get_goal_history(
     )
 
     if goal is None:
+
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=404,
             detail="Savings goal not found"
         )
 
@@ -336,58 +356,12 @@ def get_goal_history(
             SavingsTransaction.user_id == current_user.id
         )
         .order_by(
-            SavingsTransaction.transaction_date.desc(),
-            SavingsTransaction.id.desc()
+            SavingsTransaction.created_at.desc()
         )
         .all()
     )
 
-    result = []
-
-    for transaction in transactions:
-
-        result.append({
-            "id": transaction.id,
-            "goal_id": transaction.goal_id,
-            "amount": float(transaction.amount),
-            "transaction_date": transaction.transaction_date,
-            "created_at": transaction.created_at
-        })
-
-    return result
-
-
-# ==================================================
-# GET ONE SAVINGS GOAL
-# IMPORTANT: MUST COME AFTER FIXED ROUTES
-# ==================================================
-
-@router.get(
-    "/{goal_id}",
-    response_model=SavingsGoalResponse
-)
-def get_goal(
-    goal_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-
-    goal = (
-        db.query(SavingsGoal)
-        .filter(
-            SavingsGoal.id == goal_id,
-            SavingsGoal.user_id == current_user.id
-        )
-        .first()
-    )
-
-    if goal is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Savings goal not found"
-        )
-
-    return goal
+    return transactions
 
 
 # ==================================================
@@ -398,9 +372,9 @@ def get_goal(
     "/{goal_id}",
     response_model=SavingsGoalResponse
 )
-def update_goal(
+def update_savings_goal(
     goal_id: int,
-    data: SavingsGoalUpdate,
+    goal_data: SavingsGoalUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -415,32 +389,15 @@ def update_goal(
     )
 
     if goal is None:
+
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=404,
             detail="Savings goal not found"
         )
 
-    if not data.goal_name.strip():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Goal name cannot be empty"
-        )
-
-    if data.target_amount <= 0:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Target amount must be greater than 0"
-        )
-
-    if data.current_amount < 0:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Current amount cannot be negative"
-        )
-
-    goal.goal_name = data.goal_name.strip()
-    goal.target_amount = data.target_amount
-    goal.current_amount = data.current_amount
+    goal.goal_name = goal_data.goal_name
+    goal.target_amount = goal_data.target_amount
+    goal.current_amount = goal_data.current_amount
 
     db.commit()
     db.refresh(goal)
@@ -453,10 +410,9 @@ def update_goal(
 # ==================================================
 
 @router.delete(
-    "/{goal_id}",
-    status_code=status.HTTP_204_NO_CONTENT
+    "/{goal_id}"
 )
-def delete_goal(
+def delete_savings_goal(
     goal_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -472,21 +428,21 @@ def delete_goal(
     )
 
     if goal is None:
+
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=404,
             detail="Savings goal not found"
         )
 
-    # Delete related savings transactions first
-    db.query(SavingsTransaction).filter(
-        SavingsTransaction.goal_id == goal_id,
-        SavingsTransaction.user_id == current_user.id
-    ).delete(
-        synchronize_session=False
-    )
+    # Delete related transactions first
 
-    # Delete goal
+    db.query(SavingsTransaction).filter(
+        SavingsTransaction.goal_id == goal_id
+    ).delete()
+
     db.delete(goal)
     db.commit()
 
-    return None
+    return {
+        "message": "Savings goal deleted successfully"
+    }

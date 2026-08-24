@@ -13,6 +13,7 @@ import BankTransactions from "./pages/BankTransactions";
 import Budgets from "./pages/Budgets";
 import AdminDashboard from "./pages/AdminDashboard";
 import SavingsGoals from "./pages/SavingsGoals";
+import Notifications from "./pages/Notifications";
 
 function App() {
     const token = localStorage.getItem("token");
@@ -24,11 +25,7 @@ function App() {
             <Routes>
                 <Route
                     path="/"
-                    element={
-                        token
-                            ? <Navigate to="/dashboard" />
-                            : <Navigate to="/login" />
-                    }
+                    element={<Navigate to="/register" />}
                 />
 
                 <Route
@@ -96,6 +93,9 @@ function App() {
                     path="/savings-goals"
                     element={<SavingsGoals />}
                 />
+
+                <Route path="/notifications" element={<Notifications />} />
+
 
             </Routes>
         </>

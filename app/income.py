@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+from app.notification_service import create_notification
 
 from app.database import get_db
 from app.models import Income, User, BankAccount
@@ -68,7 +69,16 @@ def create_income(
     )
 
     db.add(new_income)
+# -----------------------------------------
+# ADD INCOME NOTIFICATION
+# -----------------------------------------
 
+    create_notification(
+        db=db,
+        user_id=current_user.id,
+        message=f"Income of ₹{income.amount} added successfully.",
+        notification_type="income"
+    )
     # -----------------------------------------
     # Add income amount to bank balance
     # -----------------------------------------
