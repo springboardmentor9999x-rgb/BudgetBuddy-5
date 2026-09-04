@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useAuth } from "../../context/AuthContext";
 
 function Navbar() {
     const [notifications, setNotifications] = useState([]);
@@ -6,6 +7,8 @@ function Navbar() {
 
     const token = localStorage.getItem("token");
 
+    // Get logged-in user
+    const { user } = useAuth();
 
     // ==========================================
     // GET NOTIFICATIONS
@@ -38,7 +41,6 @@ function Navbar() {
         }
     };
 
-
     // ==========================================
     // LOAD NOTIFICATIONS
     // ==========================================
@@ -49,14 +51,12 @@ function Navbar() {
         }
     }, []);
 
-
     // ==========================================
     // MARK NOTIFICATION AS READ
     // ==========================================
 
     const markAsRead = async (notification) => {
 
-        // If already read, do nothing
         if (notification.is_read) {
             return;
         }
@@ -78,7 +78,6 @@ function Navbar() {
                 );
             }
 
-            // Update frontend immediately
             setNotifications((previousNotifications) =>
                 previousNotifications.map((item) =>
                     item.id === notification.id
@@ -97,7 +96,6 @@ function Navbar() {
             );
         }
     };
-
 
     // ==========================================
     // DELETE NOTIFICATION
@@ -122,7 +120,6 @@ function Navbar() {
                 );
             }
 
-            // Remove notification immediately
             setNotifications((previousNotifications) =>
                 previousNotifications.filter(
                     (notification) =>
@@ -138,7 +135,6 @@ function Navbar() {
         }
     };
 
-
     // ==========================================
     // COUNT UNREAD NOTIFICATIONS
     // ==========================================
@@ -146,7 +142,6 @@ function Navbar() {
     const unreadCount = notifications.filter(
         (notification) => !notification.is_read
     ).length;
-
 
     return (
         <div
@@ -163,7 +158,6 @@ function Navbar() {
         >
 
             <h2>Dashboard</h2>
-
 
             {/* ======================================
                 RIGHT SIDE
@@ -195,7 +189,6 @@ function Navbar() {
                 >
                     🔔
 
-
                     {/* UNREAD COUNT */}
 
                     {unreadCount > 0 && (
@@ -219,18 +212,22 @@ function Navbar() {
                             {unreadCount}
                         </span>
                     )}
-
                 </div>
 
+                {/* ==================================
+                    LOGGED-IN USER
+                ================================== */}
 
-                {/* WELCOME */}
-
-                <div>
-                    👤 Welcome
+                <div
+                    style={{
+                        fontSize: "16px",
+                        fontWeight: "500",
+                    }}
+                >
+                    👤 Welcome, {user?.username || "User"}
                 </div>
 
             </div>
-
 
             {/* ======================================
                 NOTIFICATION DROPDOWN
@@ -268,7 +265,6 @@ function Navbar() {
                         Notifications
                     </div>
 
-
                     {/* NO NOTIFICATIONS */}
 
                     {notifications.length === 0 && (
@@ -283,7 +279,6 @@ function Navbar() {
                             No notifications
                         </div>
                     )}
-
 
                     {/* NOTIFICATION LIST */}
 
@@ -334,7 +329,6 @@ function Navbar() {
                                     {notification.notification_type}
                                 </div>
 
-
                                 {/* MESSAGE */}
 
                                 <div
@@ -344,7 +338,6 @@ function Navbar() {
                                 >
                                     {notification.message}
                                 </div>
-
 
                                 {/* DATE */}
 
@@ -362,7 +355,6 @@ function Navbar() {
                                     }
                                 </div>
 
-
                                 {/* UNREAD RED DOT */}
 
                                 {!notification.is_read && (
@@ -379,7 +371,6 @@ function Navbar() {
                                         }}
                                     />
                                 )}
-
 
                                 {/* DELETE BUTTON */}
 

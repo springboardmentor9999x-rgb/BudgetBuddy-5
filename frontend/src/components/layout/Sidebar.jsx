@@ -6,27 +6,40 @@ function Sidebar() {
 
     const navigate = useNavigate();
 
-    const { user, loading } = useAuth();
+    const {
+        user,
+        loading
+    } = useAuth();
+
 
     if (loading) {
         return null;
     }
 
+
     const handleLogout = () => {
 
         localStorage.removeItem("token");
 
-        toast.success("Logged out successfully");
+        toast.success(
+            "Logged out successfully"
+        );
 
         setTimeout(() => {
-            window.location.href = "/login";
+
+            window.location.href =
+                "/login";
+
         }, 500);
     };
+
 
     const handleCreateAccount = () => {
 
         navigate("/register");
+
     };
+
 
     return (
 
@@ -41,6 +54,8 @@ function Sidebar() {
             }}
         >
 
+            {/* LOGO */}
+
             <h2
                 style={{
                     marginBottom: "40px",
@@ -48,6 +63,7 @@ function Sidebar() {
             >
                 💰 BudgetBuddy
             </h2>
+
 
             <ul
                 style={{
@@ -60,7 +76,12 @@ function Sidebar() {
 
                 {/* DASHBOARD */}
 
-                <li style={{ marginBottom: "15px" }}>
+                <li
+                    style={{
+                        marginBottom: "15px"
+                    }}
+                >
+
                     <Link
                         to="/dashboard"
                         style={{
@@ -70,12 +91,18 @@ function Sidebar() {
                     >
                         🏠 Dashboard
                     </Link>
+
                 </li>
 
 
                 {/* INCOME */}
 
-                <li style={{ marginBottom: "15px" }}>
+                <li
+                    style={{
+                        marginBottom: "15px"
+                    }}
+                >
+
                     <Link
                         to="/income"
                         style={{
@@ -85,12 +112,18 @@ function Sidebar() {
                     >
                         💵 Income
                     </Link>
+
                 </li>
 
 
                 {/* EXPENSES */}
 
-                <li style={{ marginBottom: "15px" }}>
+                <li
+                    style={{
+                        marginBottom: "15px"
+                    }}
+                >
+
                     <Link
                         to="/expenses"
                         style={{
@@ -100,12 +133,18 @@ function Sidebar() {
                     >
                         💸 Expenses
                     </Link>
+
                 </li>
 
 
                 {/* BANK ACCOUNTS */}
 
-                <li style={{ marginBottom: "15px" }}>
+                <li
+                    style={{
+                        marginBottom: "15px"
+                    }}
+                >
+
                     <Link
                         to="/banks"
                         style={{
@@ -115,12 +154,18 @@ function Sidebar() {
                     >
                         🏦 Bank Accounts
                     </Link>
+
                 </li>
 
 
                 {/* BUDGET */}
 
-                <li style={{ marginBottom: "15px" }}>
+                <li
+                    style={{
+                        marginBottom: "15px"
+                    }}
+                >
+
                     <Link
                         to="/budgets"
                         style={{
@@ -130,12 +175,18 @@ function Sidebar() {
                     >
                         📊 Budget
                     </Link>
+
                 </li>
 
 
                 {/* SAVINGS GOALS */}
 
-                <li style={{ marginBottom: "15px" }}>
+                <li
+                    style={{
+                        marginBottom: "15px"
+                    }}
+                >
+
                     <Link
                         to="/savings-goals"
                         style={{
@@ -145,17 +196,39 @@ function Sidebar() {
                     >
                         🎯 Savings Goals
                     </Link>
+
                 </li>
 
 
-                {/* FUTURE MODULES */}
+                {/* REPORTS */}
 
-                <li style={{ marginBottom: "15px" }}>
-                    📈 Reports
+                <li
+                    style={{
+                        marginBottom: "15px"
+                    }}
+                >
+
+                    <Link
+                        to="/reports"
+                        style={{
+                            color: "white",
+                            textDecoration: "none",
+                        }}
+                    >
+                        📈 Reports
+                    </Link>
+
                 </li>
-                
-                {/* NOTIFICATION */}
-                <li style={{ marginBottom: "15px" }}>
+
+
+                {/* NOTIFICATIONS */}
+
+                <li
+                    style={{
+                        marginBottom: "15px"
+                    }}
+                >
+
                     <Link
                         to="/notifications"
                         style={{
@@ -165,10 +238,14 @@ function Sidebar() {
                     >
                         🔔 Notifications
                     </Link>
+
                 </li>
 
 
-                {/* ADMIN ONLY */}
+                {/* =================================
+                    ADMIN PANEL
+                    ONLY ADMIN
+                ================================= */}
 
                 {user?.role === "admin" && (
 
@@ -180,6 +257,7 @@ function Sidebar() {
                                 "1px solid rgba(255,255,255,0.3)",
                         }}
                     >
+
                         <Link
                             to="/admin"
                             style={{
@@ -190,12 +268,15 @@ function Sidebar() {
                         >
                             🛡️ Admin Panel
                         </Link>
+
                     </li>
 
                 )}
 
 
-                {/* ACCOUNT SECTION */}
+                {/* =================================
+                    PROFILE
+                ================================= */}
 
                 <li
                     style={{
@@ -219,23 +300,31 @@ function Sidebar() {
                 </li>
 
 
+                {/* CREATE NEW ACCOUNT */}
+
                 <li
                     style={{
                         marginTop: "15px",
                         cursor: "pointer",
                     }}
-                    onClick={handleCreateAccount}
+                    onClick={
+                        handleCreateAccount
+                    }
                 >
                     ➕ Create New Account
                 </li>
 
 
+                {/* LOGOUT */}
+
                 <li
                     style={{
                         marginTop: "15px",
                         cursor: "pointer",
                     }}
-                    onClick={handleLogout}
+                    onClick={
+                        handleLogout
+                    }
                 >
                     🚪 Logout
                 </li>
@@ -243,7 +332,9 @@ function Sidebar() {
             </ul>
 
 
-            {/* LOGGED-IN USER */}
+            {/* =================================
+                CURRENT USER
+            ================================= */}
 
             <div
                 style={{
@@ -259,19 +350,40 @@ function Sidebar() {
                     👤 {user?.username}
                 </div>
 
+
                 <div
                     style={{
                         marginTop: "5px",
                         color: "#cbd5e1",
-                        textTransform: "capitalize",
+                        textTransform:
+                            "capitalize",
                     }}
                 >
                     Role: {user?.role}
                 </div>
 
+
+                {/* PLAN */}
+
+                {user?.role === "user" && (
+
+                    <div
+                        style={{
+                            marginTop: "5px",
+                            color: "#facc15",
+                            textTransform:
+                                "capitalize",
+                        }}
+                    >
+                        Plan: {user?.plan || "normal"}
+                    </div>
+
+                )}
+
             </div>
 
         </div>
+
     );
 }
 

@@ -1,3 +1,5 @@
+from datetime import datetime, date, timezone
+
 from sqlalchemy import (
     Column,
     Integer,
@@ -8,14 +10,17 @@ from sqlalchemy import (
     Text,
     Boolean,
     ForeignKey,
+    CheckConstraint,
 )
-from app.database import Base
-from datetime import datetime, date
+
 from sqlalchemy.sql import func
 
-# =========================
+from app.database import Base
+
+
+# ============================================================
 # USER
-# =========================
+# ============================================================
 
 class User(Base):
     __tablename__ = "users"
@@ -43,9 +48,32 @@ class User(Base):
         nullable=False
     )
 
+    # ========================================================
+    # USER ROLE
+    #
+    # user     = Normal User
+    # premium  = Premium User
+    # admin    = Administrator
+    # ========================================================
+
     role = Column(
         String(20),
-        default="user"
+        default="user",
+        nullable=False
+    )
+
+    # Prevent invalid roles from being stored in database
+    __table_args__ = (
+        CheckConstraint(
+            "role IN ('user', 'premium', 'admin')",
+            name="valid_user_role"
+        ),
+    )
+    
+    plan = Column(
+        String(20),
+        default="normal",
+        nullable=False
     )
 
     verified = Column(
@@ -64,20 +92,25 @@ class User(Base):
         nullable=True
     )
 
-    # NEW
     created_at = Column(
         DateTime,
         default=datetime.utcnow,
         nullable=False
     )
-# =========================
+
+
+# ============================================================
 # BANK ACCOUNT
-# =========================
+# ============================================================
 
 class BankAccount(Base):
     __tablename__ = "bank_accounts"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True
+    )
 
     user_id = Column(
         Integer,
@@ -120,14 +153,19 @@ class BankAccount(Base):
         default=False
     )
 
-# =========================
+
+# ============================================================
 # INCOME
-# =========================
+# ============================================================
 
 class Income(Base):
     __tablename__ = "income"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True
+    )
 
     user_id = Column(
         Integer,
@@ -159,27 +197,35 @@ class Income(Base):
         Date,
         nullable=False
     )
-    
+
     bank_account_id = Column(
-            Integer,
-            ForeignKey("bank_accounts.id", ondelete="SET NULL"),
-            nullable=True
-        )
-    
+        Integer,
+        ForeignKey(
+            "bank_accounts.id",
+            ondelete="SET NULL"
+        ),
+        nullable=True
+    )
+
     created_at = Column(
         DateTime,
-        default=datetime.utcnow
+        default=datetime.utcnow,
+        nullable=False
     )
-   
 
-# =========================
+
+# ============================================================
 # EXPENSE
-# =========================
+# ============================================================
 
 class Expense(Base):
     __tablename__ = "expenses"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True
+    )
 
     user_id = Column(
         Integer,
@@ -211,7 +257,7 @@ class Expense(Base):
         Date,
         nullable=False
     )
-    
+
     bank_account_id = Column(
         Integer,
         ForeignKey(
@@ -220,26 +266,40 @@ class Expense(Base):
         ),
         nullable=True
     )
-    
+
     created_at = Column(
         DateTime,
-        default=datetime.utcnow
+        default=datetime.utcnow,
+        nullable=False
     )
 
-    
-# =========================
+
+# ============================================================
 # BUDGET
-# =========================
+# ============================================================
 
 class Budget(Base):
     __tablename__ = "budgets"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True
+    )
 
     user_id = Column(
         Integer,
         ForeignKey("users.id"),
         nullable=False
+    )
+
+    bank_account_id = Column(
+        Integer,
+        ForeignKey(
+            "bank_accounts.id",
+            ondelete="SET NULL"
+        ),
+        nullable=True
     )
 
     category = Column(
@@ -264,12 +324,14 @@ class Budget(Base):
 
     created_at = Column(
         DateTime,
-        default=datetime.utcnow
+        default=datetime.utcnow,
+        nullable=False
     )
-    
-# =========================
+
+
+# ============================================================
 # SAVINGS GOAL
-# =========================
+# ============================================================
 
 class SavingsGoal(Base):
     __tablename__ = "savings_goals"
@@ -284,6 +346,15 @@ class SavingsGoal(Base):
         Integer,
         ForeignKey("users.id"),
         nullable=False
+    )
+
+    bank_account_id = Column(
+        Integer,
+        ForeignKey(
+            "bank_accounts.id",
+            ondelete="SET NULL"
+        ),
+        nullable=True
     )
 
     goal_name = Column(
@@ -302,13 +373,25 @@ class SavingsGoal(Base):
         default=0
     )
 
-# =========================
+    created_at = Column(
+        DateTime,
+        default=datetime.utcnow,
+        nullable=False
+    )
+
+
+# ============================================================
 # SAVINGS TRANSACTION
-# =========================
+# ============================================================
+
 class SavingsTransaction(Base):
     __tablename__ = "savings_transactions"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True
+    )
 
     goal_id = Column(
         Integer,
@@ -320,6 +403,15 @@ class SavingsTransaction(Base):
         Integer,
         ForeignKey("users.id"),
         nullable=False
+    )
+
+    bank_account_id = Column(
+        Integer,
+        ForeignKey(
+            "bank_accounts.id",
+            ondelete="SET NULL"
+        ),
+        nullable=True
     )
 
     amount = Column(
@@ -335,34 +427,58 @@ class SavingsTransaction(Base):
 
     created_at = Column(
         DateTime,
-        default=datetime.utcnow
+        default=datetime.utcnow,
+        nullable=False
     )
-    
-# =========================
+
+
+# ============================================================
 # PROFILE
-# =========================
+# ============================================================
 
 class Profile(Base):
     __tablename__ = "profiles"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True
+    )
+
     user_id = Column(
         Integer,
         ForeignKey("users.id"),
         nullable=False
     )
 
-    full_name = Column(String, nullable=False)
-    monthly_income = Column(Numeric, nullable=True)
-    financial_preferences = Column(Text, nullable=True)
+    full_name = Column(
+        String,
+        nullable=False
+    )
 
-# =========================
+    monthly_income = Column(
+        Numeric,
+        nullable=True
+    )
+
+    financial_preferences = Column(
+        Text,
+        nullable=True
+    )
+
+
+# ============================================================
 # NOTIFICATION
-# =========================
+# ============================================================
+
 class Notification(Base):
     __tablename__ = "notifications"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True
+    )
 
     user_id = Column(
         Integer,
@@ -389,25 +505,47 @@ class Notification(Base):
 
     created_at = Column(
         DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
         server_default=func.now(),
         nullable=False
     )
 
 
-# =========================
+# ============================================================
 # REPORT
-# =========================
+# ============================================================
 
 class Report(Base):
     __tablename__ = "reports"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True
+    )
+
     user_id = Column(
         Integer,
         ForeignKey("users.id"),
         nullable=False
     )
 
-    report_type = Column(String, nullable=False)
-    generated_date = Column(DateTime, nullable=True)
+    bank_account_id = Column(
+        Integer,
+        ForeignKey(
+            "bank_accounts.id",
+            ondelete="SET NULL"
+        ),
+        nullable=True
+    )
 
+    report_type = Column(
+        Text,
+        nullable=False
+    )
+
+    generated_date = Column(
+        DateTime,
+        default=datetime.utcnow,
+        nullable=False
+    )

@@ -1,7 +1,14 @@
 import VerifyOTP from "./pages/VerifyOTP";
-import { Routes, Route, Navigate } from "react-router-dom";
+import {
+    Routes,
+    Route,
+    Navigate
+} from "react-router-dom";
+
 import { ToastContainer } from "react-toastify";
+
 import AdminRoute from "./components/auth/AdminRoute";
+
 import Register from "./pages/Register";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
@@ -14,19 +21,31 @@ import Budgets from "./pages/Budgets";
 import AdminDashboard from "./pages/AdminDashboard";
 import SavingsGoals from "./pages/SavingsGoals";
 import Notifications from "./pages/Notifications";
+import Reports from "./pages/Reports";
+
+import DashboardRedirect from "./components/auth/DashboardRedirect";
 
 function App() {
+
     const token = localStorage.getItem("token");
 
     return (
         <>
-            <ToastContainer position="top-right" autoClose={2000} />
+            <ToastContainer
+                position="top-right"
+                autoClose={2000}
+            />
 
             <Routes>
+
+                {/* ROOT */}
+
                 <Route
                     path="/"
-                    element={<Navigate to="/register" />}
+                    element={<DashboardRedirect />}
                 />
+
+                {/* AUTH */}
 
                 <Route
                     path="/login"
@@ -37,50 +56,135 @@ function App() {
                     path="/register"
                     element={<Register />}
                 />
+
                 <Route
                     path="/verify-otp"
                     element={<VerifyOTP />}
                 />
+
+
+                {/* MAIN DASHBOARD */}
+
                 <Route
                     path="/dashboard"
                     element={
                         token
                             ? <Dashboard />
-                            : <Navigate to="/login" />
+                            : <Navigate to="/login" replace />
                     }
                 />
+
+
+                {/* INCOME */}
+
                 <Route
                     path="/income"
-                    element={<Income />}
+                    element={
+                        token
+                            ? <Income />
+                            : <Navigate to="/login" replace />
+                    }
                 />
+
+
+                {/* EXPENSES */}
 
                 <Route
                     path="/expenses"
-                    element={<Expenses />}
+                    element={
+                        token
+                            ? <Expenses />
+                            : <Navigate to="/login" replace />
+                    }
                 />
+
+
+                {/* BANKS */}
 
                 <Route
                     path="/banks"
-                    element={<Banks />}
+                    element={
+                        token
+                            ? <Banks />
+                            : <Navigate to="/login" replace />
+                    }
                 />
+
+
+                {/* BUDGET */}
+
                 <Route
                     path="/budgets"
-                    element={<Budgets />}
+                    element={
+                        token
+                            ? <Budgets />
+                            : <Navigate to="/login" replace />
+                    }
                 />
+
+
+                {/* BANK TRANSACTIONS */}
 
                 <Route
                     path="/banks/:bankId/transactions"
                     element={
                         token
                             ? <BankTransactions />
-                            : <Navigate to="/login" />
+                            : <Navigate to="/login" replace />
                     }
                 />
 
+
+                {/* TRANSACTIONS */}
+
                 <Route
                     path="/transactions"
-                    element={<Transactions />}
+                    element={
+                        token
+                            ? <Transactions />
+                            : <Navigate to="/login" replace />
+                    }
                 />
+
+
+                {/* SAVINGS */}
+
+                <Route
+                    path="/savings-goals"
+                    element={
+                        token
+                            ? <SavingsGoals />
+                            : <Navigate to="/login" replace />
+                    }
+                />
+
+
+                {/* NOTIFICATIONS */}
+
+                <Route
+                    path="/notifications"
+                    element={
+                        token
+                            ? <Notifications />
+                            : <Navigate to="/login" replace />
+                    }
+                />
+
+
+                {/* REPORTS */}
+
+                <Route
+                    path="/reports"
+                    element={
+                        token
+                            ? <Reports />
+                            : <Navigate to="/login" replace />
+                    }
+                />
+
+
+                {/* ADMIN */}
+
                 <Route
                     path="/admin"
                     element={
@@ -89,13 +193,19 @@ function App() {
                         </AdminRoute>
                     }
                 />
+
+
+                {/* UNKNOWN URL */}
+
                 <Route
-                    path="/savings-goals"
-                    element={<SavingsGoals />}
+                    path="*"
+                    element={
+                        <Navigate
+                            to="/"
+                            replace
+                        />
+                    }
                 />
-
-                <Route path="/notifications" element={<Notifications />} />
-
 
             </Routes>
         </>

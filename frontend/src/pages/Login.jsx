@@ -1,18 +1,24 @@
 import { useState } from "react";
 import { toast } from "react-toastify";
+import { useNavigate } from "react-router-dom";
 import api from "../services/api";
+import { useAuth } from "../context/AuthContext";
 
 function Login() {
+
+    const navigate = useNavigate();
+    const { loadUser } = useAuth();
 
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
 
     const handleLogin = async (e) => {
+
         e.preventDefault();
 
         if (!username.trim()) {
-            toast.error("Please enter your username");
+            toast.error("Please enter username or email");
             return;
         }
 
@@ -22,6 +28,7 @@ function Login() {
         }
 
         try {
+
             setLoading(true);
 
             const formData = new URLSearchParams();
@@ -36,6 +43,8 @@ function Login() {
                 password
             );
 
+            console.log("LOGIN USER:", username.trim());
+
             const response = await api.post(
                 "/auth/login",
                 formData,
@@ -47,27 +56,46 @@ function Login() {
                 }
             );
 
-            // Save token of the account that just logged in
-            localStorage.setItem(
-                "token",
-                response.data.access_token
-            );
+            console.log("LOGIN RESPONSE:", response.data);
 
-            // Show login success notification
+            const token = response.data.access_token;
+
+            if (!token) {
+                toast.error("Login token not received");
+                return;
+            }
+
+            // Remove previous account token
+            localStorage.removeItem("token");
+
+            // Save new account token
+            localStorage.setItem("token", token);
+
+            // Load the newly logged-in user
+            await loadUser();
+
             toast.success("Login successful");
 
-            // Redirect to this account's dashboard
-            setTimeout(() => {
-                window.location.href = "/dashboard";
-            }, 500);
+            /*
+             * IMPORTANT:
+             * All users first go to the normal Dashboard.
+             * Their role-based features are handled later.
+             */
+
+            navigate("/dashboard", {
+                replace: true
+            });
 
         } catch (error) {
 
-            console.log("Login error:", error);
+            console.error(
+                "LOGIN ERROR:",
+                error.response?.data || error
+            );
 
             toast.error(
                 error.response?.data?.detail ||
-                "Login failed"
+                "Invalid username/email or password"
             );
 
         } finally {
@@ -84,10 +112,11 @@ function Login() {
                 display: "flex",
                 justifyContent: "center",
                 alignItems: "center",
-                height: "100vh",
+                minHeight: "100vh",
                 background: "#f3f4f6",
             }}
         >
+
             <div
                 style={{
                     width: "420px",
@@ -99,26 +128,35 @@ function Login() {
                 }}
             >
 
-                <h1 style={{ textAlign: "center" }}>
+                <h1
+                    style={{
+                        textAlign: "center",
+                        marginBottom: "5px",
+                    }}
+                >
                     BudgetBuddy
                 </h1>
 
-                <h2 style={{ textAlign: "center" }}>
+                <h2
+                    style={{
+                        textAlign: "center",
+                        marginTop: "0",
+                    }}
+                >
                     Login
                 </h2>
 
                 <form onSubmit={handleLogin}>
 
-                    {/* USERNAME */}
-
                     <input
                         type="text"
-                        placeholder="Username"
+                        placeholder="Username or Email"
                         value={username}
                         onChange={(e) =>
                             setUsername(e.target.value)
                         }
                         disabled={loading}
+                        autoComplete="username"
                         style={{
                             width: "100%",
                             padding: "12px",
@@ -126,8 +164,6 @@ function Login() {
                             boxSizing: "border-box",
                         }}
                     />
-
-                    {/* PASSWORD */}
 
                     <input
                         type="password"
@@ -137,6 +173,7 @@ function Login() {
                             setPassword(e.target.value)
                         }
                         disabled={loading}
+                        autoComplete="current-password"
                         style={{
                             width: "100%",
                             padding: "12px",
@@ -145,8 +182,6 @@ function Login() {
                         }}
                     />
 
-                    {/* LOGIN BUTTON */}
-
                     <button
                         type="submit"
                         disabled={loading}
@@ -154,17 +189,15 @@ function Login() {
                             width: "100%",
                             padding: "12px",
                             marginTop: "20px",
-                            background:
-                                loading
-                                    ? "#94a3b8"
-                                    : "#3949db",
+                            background: loading
+                                ? "#94a3b8"
+                                : "#3949db",
                             color: "white",
                             border: "none",
                             borderRadius: "5px",
-                            cursor:
-                                loading
-                                    ? "not-allowed"
-                                    : "pointer",
+                            cursor: loading
+                                ? "not-allowed"
+                                : "pointer",
                         }}
                     >
                         {loading
@@ -175,8 +208,8 @@ function Login() {
                 </form>
 
             </div>
-        </div>
 
+        </div>
     );
 }
 

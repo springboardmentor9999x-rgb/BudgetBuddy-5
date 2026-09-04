@@ -5,9 +5,11 @@ import DashboardSummary from "../components/dashboard/DashboardSummary";
 import RecentTransactions from "../components/dashboard/RecentTransactions";
 import IncomeExpenseChart from "../components/dashboard/IncomeExpenseChart";
 
+
 function Dashboard() {
 
     return (
+
         <div
             style={{
                 display: "flex",
@@ -53,7 +55,9 @@ function Dashboard() {
             </div>
 
         </div>
+
     );
 }
+
 
 export default Dashboard;

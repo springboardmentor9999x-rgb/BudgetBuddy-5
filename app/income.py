@@ -1,26 +1,29 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
-from sqlalchemy import func
-from app.notification_service import create_notification
 
+from app.notification_service import create_notification
 from app.database import get_db
 from app.models import Income, User, BankAccount
-from app.users import get_current_user
+from app.users import require_user
+
 from app.schemas import (
     IncomeCreate,
     IncomeUpdate,
     IncomeResponse,
 )
 
+
 router = APIRouter(
     prefix="/income",
     tags=["Income"]
 )
 
+
 # ==================================================
 # CREATE INCOME
 # ==================================================
+
 @router.post(
     "",
     response_model=IncomeResponse,
@@ -29,8 +32,9 @@ router = APIRouter(
 def create_income(
     income: IncomeCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(require_user)
 ):
+
     # -----------------------------------------
     # Check bank account if one was selected
     # -----------------------------------------
@@ -69,9 +73,10 @@ def create_income(
     )
 
     db.add(new_income)
-# -----------------------------------------
-# ADD INCOME NOTIFICATION
-# -----------------------------------------
+
+    # -----------------------------------------
+    # Add income notification
+    # -----------------------------------------
 
     create_notification(
         db=db,
@@ -79,6 +84,7 @@ def create_income(
         message=f"Income of ₹{income.amount} added successfully.",
         notification_type="income"
     )
+
     # -----------------------------------------
     # Add income amount to bank balance
     # -----------------------------------------
@@ -91,23 +97,31 @@ def create_income(
 
     return new_income
 
+
 # ==================================================
 # GET ALL INCOME
 # ==================================================
+
 @router.get(
     "",
     response_model=list[IncomeResponse]
 )
 def get_all_income(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(require_user)
 ):
+
     return (
         db.query(Income)
-        .filter(Income.user_id == current_user.id)
-        .order_by(Income.date.desc())
+        .filter(
+            Income.user_id == current_user.id
+        )
+        .order_by(
+            Income.date.desc()
+        )
         .all()
     )
+
 
 # ==================================================
 # TOTAL INCOME
@@ -116,10 +130,13 @@ def get_all_income(
 @router.get("/total")
 def total_income(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(require_user)
 ):
+
     total = (
-        db.query(func.sum(Income.amount))
+        db.query(
+            func.sum(Income.amount)
+        )
         .filter(
             Income.user_id == current_user.id
         )
@@ -130,9 +147,11 @@ def total_income(
         "total_income": total or 0
     }
 
+
 # ==================================================
 # GET SINGLE INCOME
 # ==================================================
+
 @router.get(
     "/{income_id}",
     response_model=IncomeResponse
@@ -140,8 +159,9 @@ def total_income(
 def get_income(
     income_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(require_user)
 ):
+
     income = (
         db.query(Income)
         .filter(
@@ -172,11 +192,11 @@ def update_income(
     income_id: int,
     income: IncomeUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(require_user)
 ):
 
     # -----------------------------------------
-    # FIND EXISTING INCOME
+    # Find existing income
     # -----------------------------------------
 
     db_income = (
@@ -205,10 +225,8 @@ def update_income(
         old_bank = (
             db.query(BankAccount)
             .filter(
-                BankAccount.id ==
-                db_income.bank_account_id,
-                BankAccount.user_id ==
-                current_user.id
+                BankAccount.id == db_income.bank_account_id,
+                BankAccount.user_id == current_user.id
             )
             .first()
         )
@@ -217,22 +235,24 @@ def update_income(
     # NEW BANK
     # -----------------------------------------
 
-    new_bank = (
-        db.query(BankAccount)
-        .filter(
-            BankAccount.id ==
-            income.bank_account_id,
-            BankAccount.user_id ==
-            current_user.id
-        )
-        .first()
-    )
+    new_bank = None
 
-    if new_bank is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Bank account not found"
+    if income.bank_account_id is not None:
+
+        new_bank = (
+            db.query(BankAccount)
+            .filter(
+                BankAccount.id == income.bank_account_id,
+                BankAccount.user_id == current_user.id
+            )
+            .first()
         )
+
+        if new_bank is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Bank account not found"
+            )
 
     # -----------------------------------------
     # REMOVE OLD INCOME FROM OLD BANK
@@ -245,7 +265,8 @@ def update_income(
     # ADD NEW INCOME TO NEW BANK
     # -----------------------------------------
 
-    new_bank.current_balance += income.amount
+    if new_bank is not None:
+        new_bank.current_balance += income.amount
 
     # -----------------------------------------
     # UPDATE INCOME
@@ -256,9 +277,7 @@ def update_income(
     db_income.amount = income.amount
     db_income.description = income.description
     db_income.date = income.date
-    db_income.bank_account_id = (
-        income.bank_account_id
-    )
+    db_income.bank_account_id = income.bank_account_id
 
     db.commit()
     db.refresh(db_income)
@@ -276,11 +295,11 @@ def update_income(
 def delete_income(
     income_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(require_user)
 ):
 
     # -----------------------------------------
-    # FIND INCOME
+    # Find income
     # -----------------------------------------
 
     db_income = (
@@ -299,7 +318,7 @@ def delete_income(
         )
 
     # -----------------------------------------
-    # RESTORE MONEY TO BANK
+    # Remove money from bank
     # -----------------------------------------
 
     if db_income.bank_account_id is not None:
@@ -307,21 +326,17 @@ def delete_income(
         bank = (
             db.query(BankAccount)
             .filter(
-                BankAccount.id ==
-                db_income.bank_account_id,
-                BankAccount.user_id ==
-                current_user.id
+                BankAccount.id == db_income.bank_account_id,
+                BankAccount.user_id == current_user.id
             )
             .first()
         )
 
         if bank is not None:
-            bank.current_balance -= (
-                db_income.amount
-            )
+            bank.current_balance -= db_income.amount
 
     # -----------------------------------------
-    # DELETE INCOME
+    # Delete income
     # -----------------------------------------
 
     db.delete(db_income)
@@ -329,14 +344,14 @@ def delete_income(
     db.commit()
 
     return {
-        "message":
-        "Income deleted successfully"
+        "message": "Income deleted successfully"
     }
 
 
 # ==================================================
 # SEARCH INCOME
 # ==================================================
+
 @router.get(
     "/search/{keyword}",
     response_model=list[IncomeResponse]
@@ -344,34 +359,16 @@ def delete_income(
 def search_income(
     keyword: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(require_user)
 ):
+
     return (
         db.query(Income)
         .filter(
             Income.user_id == current_user.id,
-            Income.source.ilike(f"%{keyword}%")
+            Income.source.ilike(
+                f"%{keyword}%"
+            )
         )
         .all()
     )
-
-
-# ==================================================
-# TOTAL INCOME
-# ==================================================
-@router.get("/total")
-def total_income(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    total = (
-        db.query(func.sum(Income.amount))
-        .filter(
-            Income.user_id == current_user.id
-        )
-        .scalar()
-    )
-
-    return {
-        "total_income": total or 0
-    }
