@@ -7,9 +7,12 @@ const api = axios.create({
     },
 });
 
-// ==================================================
-// ADD CURRENT TOKEN TO EVERY REQUEST
-// ==================================================
+
+/*
+==================================================
+ATTACH JWT TOKEN TO EVERY REQUEST
+==================================================
+*/
 
 api.interceptors.request.use(
     (config) => {
@@ -22,10 +25,6 @@ api.interceptors.request.use(
             config.headers.Authorization =
                 `Bearer ${token}`;
 
-        } else {
-
-            delete config.headers.Authorization;
-
         }
 
         return config;
@@ -37,9 +36,11 @@ api.interceptors.request.use(
 );
 
 
-// ==================================================
-// HANDLE UNAUTHORIZED REQUESTS
-// ==================================================
+/*
+==================================================
+HANDLE UNAUTHORIZED RESPONSE
+==================================================
+*/
 
 api.interceptors.response.use(
 
@@ -49,19 +50,18 @@ api.interceptors.response.use(
 
     (error) => {
 
-        if (
-            error.response?.status === 401
-        ) {
+        if (error.response?.status === 401) {
+
+            console.log(
+                "Unauthorized request"
+            );
 
             localStorage.removeItem("token");
-
-            // Don't redirect automatically here.
-            // Login.jsx will handle the login flow.
         }
 
         return Promise.reject(error);
     }
-);
 
+);
 
 export default api;

@@ -4,6 +4,7 @@ import { toast } from "react-toastify";
 import { FaEdit, FaTrash } from "react-icons/fa";
 import EditIncomeModal from "./EditIncomeModal";
 
+
 function IncomeList({ refresh }) {
 
     const [income, setIncome] = useState([]);
@@ -155,6 +156,22 @@ function IncomeList({ refresh }) {
 
 
     // ==========================================
+    // CHECK OPENING BALANCE
+    // ==========================================
+
+    const isOpeningBalance = (item) => {
+
+        return (
+            item.source ===
+                "Bank Account Opening Balance"
+            ||
+            item.category ===
+                "Opening Balance"
+        );
+    };
+
+
+    // ==========================================
     // DELETE INCOME
     // ==========================================
 
@@ -210,6 +227,16 @@ function IncomeList({ refresh }) {
 
     const editIncome = (item) => {
 
+        // Opening balance cannot be edited
+        if (isOpeningBalance(item)) {
+
+            toast.info(
+                "Opening Balance cannot be modified."
+            );
+
+            return;
+        }
+
         setSelectedIncome(item);
         setShowModal(true);
 
@@ -241,7 +268,6 @@ function IncomeList({ refresh }) {
 
 
     return (
-
         <>
 
             {/* =====================================
@@ -296,6 +322,7 @@ function IncomeList({ refresh }) {
                             key={bank.id}
                             value={bank.id}
                         >
+
                             {bank.bank_name}
 
                             {bank.account_number
@@ -307,6 +334,7 @@ function IncomeList({ refresh }) {
                             {bank.is_primary
                                 ? " (Primary)"
                                 : ""}
+
                         </option>
 
                     ))}
@@ -470,112 +498,172 @@ function IncomeList({ refresh }) {
                         ) : (
 
                             filteredIncome.map(
-                                (item) => (
+                                (item) => {
 
-                                    <tr
-                                        key={item.id}
-                                        style={{
-                                            textAlign:
-                                                "center",
-                                            borderBottom:
-                                                "1px solid #ddd",
-                                        }}
-                                    >
+                                    const openingBalance =
+                                        isOpeningBalance(
+                                            item
+                                        );
 
-                                        <td
+                                    return (
+
+                                        <tr
+                                            key={item.id}
                                             style={{
-                                                padding:
-                                                    "12px",
+                                                textAlign:
+                                                    "center",
+                                                borderBottom:
+                                                    "1px solid #ddd",
                                             }}
                                         >
-                                            {item.source}
-                                        </td>
 
-                                        <td>
-                                            {item.category}
-                                        </td>
-
-                                        <td
-                                            style={{
-                                                color:
-                                                    "#16a34a",
-                                                fontWeight:
-                                                    "600",
-                                            }}
-                                        >
-                                            ₹{" "}
-                                            {Number(
-                                                item.amount
-                                            ).toLocaleString(
-                                                "en-IN"
-                                            )}
-                                        </td>
-
-                                        <td>
-                                            {item.description ||
-                                                "-"}
-                                        </td>
-
-                                        <td>
-                                            {item.date}
-                                        </td>
-
-                                        <td>
-
-                                            <button
-                                                onClick={() =>
-                                                    editIncome(
-                                                        item
-                                                    )
-                                                }
+                                            <td
                                                 style={{
-                                                    background:
-                                                        "#ffc107",
-                                                    border:
-                                                        "none",
                                                     padding:
-                                                        "8px",
-                                                    marginRight:
-                                                        "10px",
-                                                    cursor:
-                                                        "pointer",
-                                                    borderRadius:
-                                                        "5px",
+                                                        "12px",
+                                                    fontWeight:
+                                                        openingBalance
+                                                            ? "600"
+                                                            : "normal",
                                                 }}
                                             >
-                                                <FaEdit />
-                                            </button>
+
+                                                {item.source}
+
+                                            </td>
 
 
-                                            <button
-                                                onClick={() =>
-                                                    deleteIncome(
-                                                        item.id
-                                                    )
-                                                }
+                                            <td>
+
+                                                {item.category}
+
+                                            </td>
+
+
+                                            <td
                                                 style={{
-                                                    background:
-                                                        "#dc3545",
                                                     color:
-                                                        "white",
-                                                    border:
-                                                        "none",
-                                                    padding:
-                                                        "8px",
-                                                    cursor:
-                                                        "pointer",
-                                                    borderRadius:
-                                                        "5px",
+                                                        "#16a34a",
+                                                    fontWeight:
+                                                        "600",
                                                 }}
                                             >
-                                                <FaTrash />
-                                            </button>
 
-                                        </td>
+                                                ₹{" "}
 
-                                    </tr>
+                                                {Number(
+                                                    item.amount
+                                                ).toLocaleString(
+                                                    "en-IN"
+                                                )}
 
-                                )
+                                            </td>
+
+
+                                            <td>
+
+                                                {item.description ||
+                                                    "-"}
+
+                                            </td>
+
+
+                                            <td>
+
+                                                {item.date}
+
+                                            </td>
+
+
+                                            <td>
+
+                                                {openingBalance ? (
+
+                                                    <span
+                                                        style={{
+                                                            display:
+                                                                "inline-block",
+                                                            padding:
+                                                                "7px 12px",
+                                                            borderRadius:
+                                                                "6px",
+                                                            background:
+                                                                "#f1f5f9",
+                                                            color:
+                                                                "#64748b",
+                                                            fontSize:
+                                                                "13px",
+                                                            fontWeight:
+                                                                "600",
+                                                        }}
+                                                    >
+                                                        🔒 Locked
+                                                    </span>
+
+                                                ) : (
+
+                                                    <>
+
+                                                        <button
+                                                            onClick={() =>
+                                                                editIncome(
+                                                                    item
+                                                                )
+                                                            }
+                                                            style={{
+                                                                background:
+                                                                    "#ffc107",
+                                                                border:
+                                                                    "none",
+                                                                padding:
+                                                                    "8px",
+                                                                marginRight:
+                                                                    "10px",
+                                                                cursor:
+                                                                    "pointer",
+                                                                borderRadius:
+                                                                    "5px",
+                                                            }}
+                                                        >
+                                                            <FaEdit />
+                                                        </button>
+
+
+                                                        <button
+                                                            onClick={() =>
+                                                                deleteIncome(
+                                                                    item.id
+                                                                )
+                                                            }
+                                                            style={{
+                                                                background:
+                                                                    "#dc3545",
+                                                                color:
+                                                                    "white",
+                                                                border:
+                                                                    "none",
+                                                                padding:
+                                                                    "8px",
+                                                                cursor:
+                                                                    "pointer",
+                                                                borderRadius:
+                                                                    "5px",
+                                                            }}
+                                                        >
+                                                            <FaTrash />
+                                                        </button>
+
+                                                    </>
+
+                                                )}
+
+                                            </td>
+
+                                        </tr>
+
+                                    );
+
+                                }
                             )
 
                         )}
@@ -601,8 +689,8 @@ function IncomeList({ refresh }) {
             />
 
         </>
-
     );
 }
+
 
 export default IncomeList;

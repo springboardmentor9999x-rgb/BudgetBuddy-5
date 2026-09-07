@@ -129,7 +129,57 @@ def get_all_savings_goals(
 
     return goals
 
+# ==========================================================
+# GET SAVINGS GOAL HISTORY
+# ==========================================================
 
+@router.get(
+    "/{goal_id}/history",
+    response_model=list[SavingsTransactionResponse]
+)
+def get_goal_history(
+    goal_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+
+    # ------------------------------------------------------
+    # CHECK THAT THE GOAL BELONGS TO THE CURRENT USER
+    # ------------------------------------------------------
+
+    goal = (
+        db.query(SavingsGoal)
+        .filter(
+            SavingsGoal.id == goal_id,
+            SavingsGoal.user_id == current_user.id
+        )
+        .first()
+    )
+
+    if goal is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Savings goal not found"
+        )
+
+    # ------------------------------------------------------
+    # GET SAVINGS TRANSACTIONS
+    # ------------------------------------------------------
+
+    transactions = (
+        db.query(SavingsTransaction)
+        .filter(
+            SavingsTransaction.goal_id == goal_id,
+            SavingsTransaction.user_id == current_user.id
+        )
+        .order_by(
+            SavingsTransaction.transaction_date.desc(),
+            SavingsTransaction.id.desc()
+        )
+        .all()
+    )
+
+    return transactions
 # ==========================================================
 # GET SINGLE SAVINGS GOAL
 # ==========================================================
@@ -178,6 +228,16 @@ def add_amount(
 ):
 
     # ------------------------------------------------------
+    # VALIDATE AMOUNT
+    # ------------------------------------------------------
+
+    if float(data.amount) <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Savings amount must be greater than zero"
+        )
+
+    # ------------------------------------------------------
     # FIND GOAL
     # ------------------------------------------------------
 
@@ -197,7 +257,7 @@ def add_amount(
         )
 
     # ------------------------------------------------------
-    # FIND LINKED BANK ACCOUNT
+    # CHECK LINKED BANK
     # ------------------------------------------------------
 
     if goal.bank_account_id is None:
@@ -221,87 +281,29 @@ def add_amount(
             detail="Linked bank account not found"
         )
 
+    amount = float(data.amount)
+
     # ------------------------------------------------------
-    # CALCULATE BANK-SPECIFIC INCOME
+    # CHECK ACTUAL BANK BALANCE
     # ------------------------------------------------------
 
-    total_income = (
-        db.query(
-            func.coalesce(
-                func.sum(Income.amount),
-                0
-            )
-        )
-        .filter(
-            Income.user_id == current_user.id,
-            Income.bank_account_id == goal.bank_account_id
-        )
-        .scalar()
+    current_bank_balance = float(
+        bank_account.current_balance or 0
     )
 
-    # ------------------------------------------------------
-    # CALCULATE BANK-SPECIFIC EXPENSE
-    # ------------------------------------------------------
-
-    total_expense = (
-        db.query(
-            func.coalesce(
-                func.sum(Expense.amount),
-                0
-            )
-        )
-        .filter(
-            Expense.user_id == current_user.id,
-            Expense.bank_account_id == goal.bank_account_id
-        )
-        .scalar()
-    )
-
-    # ------------------------------------------------------
-    # CALCULATE BANK-SPECIFIC SAVINGS
-    # ------------------------------------------------------
-
-    total_saved = (
-        db.query(
-            func.coalesce(
-                func.sum(SavingsTransaction.amount),
-                0
-            )
-        )
-        .filter(
-            SavingsTransaction.user_id == current_user.id,
-            SavingsTransaction.bank_account_id == goal.bank_account_id
-        )
-        .scalar()
-    )
-
-    # ------------------------------------------------------
-    # AVAILABLE BALANCE
-    # ------------------------------------------------------
-
-    available_balance = (
-        float(total_income)
-        - float(total_expense)
-        - float(total_saved)
-    )
-
-    # ------------------------------------------------------
-    # CHECK BALANCE
-    # ------------------------------------------------------
-
-    if float(data.amount) > available_balance:
-
+    if amount > current_bank_balance:
         raise HTTPException(
             status_code=400,
             detail=(
                 f"Insufficient balance in "
                 f"{bank_account.bank_name}. "
-                f"Available amount: ₹{available_balance:.2f}"
+                f"Available amount: "
+                f"₹{current_bank_balance:.2f}"
             )
         )
 
     # ------------------------------------------------------
-    # OLD AMOUNT
+    # OLD GOAL AMOUNT
     # ------------------------------------------------------
 
     old_amount = float(
@@ -309,11 +311,48 @@ def add_amount(
     )
 
     # ------------------------------------------------------
-    # ADD MONEY
+    # CHECK TARGET
     # ------------------------------------------------------
 
-    goal.current_amount = (
-        old_amount + float(data.amount)
+    target_amount = float(
+        goal.target_amount
+    )
+
+    if old_amount >= target_amount:
+        raise HTTPException(
+            status_code=400,
+            detail="This savings goal has already been reached"
+        )
+
+    # ------------------------------------------------------
+    # CHECK THAT NEW SAVINGS DOES NOT EXCEED TARGET
+    # ------------------------------------------------------
+
+    if old_amount + amount > target_amount:
+        remaining_amount = target_amount - old_amount
+
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"You can add only ₹{remaining_amount:.2f} "
+                f"to reach this savings goal."
+            )
+        )
+
+    # ------------------------------------------------------
+    # ADD MONEY TO GOAL
+    # ------------------------------------------------------
+
+    new_amount = old_amount + amount
+
+    goal.current_amount = new_amount
+
+    # ------------------------------------------------------
+    # DEDUCT MONEY FROM BANK
+    # ------------------------------------------------------
+
+    bank_account.current_balance = (
+        current_bank_balance - amount
     )
 
     # ------------------------------------------------------
@@ -331,13 +370,13 @@ def add_amount(
     db.add(transaction)
 
     # ------------------------------------------------------
-    # NOTIFICATION
+    # SAVINGS NOTIFICATION
     # ------------------------------------------------------
 
     add_notification = Notification(
         user_id=current_user.id,
         message=(
-            f"₹{float(data.amount):.2f} added to "
+            f"₹{amount:.2f} added to "
             f"your savings goal '{goal.goal_name}' "
             f"from {bank_account.bank_name}."
         ),
@@ -347,16 +386,8 @@ def add_amount(
     db.add(add_notification)
 
     # ------------------------------------------------------
-    # CHECK GOAL REACHED
+    # CHECK WHETHER GOAL WAS REACHED
     # ------------------------------------------------------
-
-    target_amount = float(
-        goal.target_amount
-    )
-
-    new_amount = float(
-        goal.current_amount
-    )
 
     if (
         old_amount < target_amount
@@ -373,12 +404,10 @@ def add_amount(
             notification_type="success"
         )
 
-        db.add(
-            goal_reached_notification
-        )
+        db.add(goal_reached_notification)
 
     # ------------------------------------------------------
-    # COMMIT
+    # SAVE EVERYTHING
     # ------------------------------------------------------
 
     db.commit()
@@ -415,7 +444,6 @@ def get_savings_transactions(
     )
 
     if goal is None:
-
         raise HTTPException(
             status_code=404,
             detail="Savings goal not found"
@@ -469,14 +497,22 @@ def update_savings_goal(
     )
 
     if goal is None:
-
         raise HTTPException(
             status_code=404,
             detail="Savings goal not found"
         )
 
     # ------------------------------------------------------
-    # CHECK NEW BANK ACCOUNT
+    # IMPORTANT:
+    # DO NOT ALLOW CURRENT_AMOUNT TO BE CHANGED MANUALLY
+    # ------------------------------------------------------
+
+    existing_saved_amount = float(
+        goal.current_amount or 0
+    )
+
+    # ------------------------------------------------------
+    # CHECK NEW BANK
     # ------------------------------------------------------
 
     bank_account = (
@@ -495,12 +531,37 @@ def update_savings_goal(
         )
 
     # ------------------------------------------------------
-    # UPDATE
+    # DO NOT MOVE SAVED MONEY WHEN CHANGING BANK
+    #
+    # If the goal already has savings transactions,
+    # changing the linked bank would make the accounting
+    # inconsistent.
+    # ------------------------------------------------------
+
+    if (
+        goal.bank_account_id != goal_data.bank_account_id
+        and existing_saved_amount > 0
+    ):
+
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Bank account cannot be changed after "
+                "money has been added to this savings goal. "
+                "Create a new savings goal for another bank."
+            )
+        )
+
+    # ------------------------------------------------------
+    # UPDATE GOAL DETAILS
     # ------------------------------------------------------
 
     goal.goal_name = goal_data.goal_name
     goal.target_amount = goal_data.target_amount
-    goal.current_amount = goal_data.current_amount
+
+    # Keep actual saved amount unchanged
+    goal.current_amount = existing_saved_amount
+
     goal.bank_account_id = goal_data.bank_account_id
 
     db.commit()
@@ -522,6 +583,10 @@ def delete_savings_goal(
     current_user: User = Depends(get_current_user)
 ):
 
+    # ------------------------------------------------------
+    # FIND GOAL
+    # ------------------------------------------------------
+
     goal = (
         db.query(SavingsGoal)
         .filter(
@@ -532,20 +597,65 @@ def delete_savings_goal(
     )
 
     if goal is None:
-
         raise HTTPException(
             status_code=404,
             detail="Savings goal not found"
         )
 
     # ------------------------------------------------------
-    # DELETE TRANSACTIONS
+    # CALCULATE TOTAL SAVED FOR THIS GOAL
+    # ------------------------------------------------------
+
+    total_saved = (
+        db.query(
+            func.coalesce(
+                func.sum(SavingsTransaction.amount),
+                0
+            )
+        )
+        .filter(
+            SavingsTransaction.goal_id == goal_id,
+            SavingsTransaction.user_id == current_user.id
+        )
+        .scalar()
+    )
+
+    total_saved = float(total_saved or 0)
+
+    # ------------------------------------------------------
+    # RESTORE MONEY TO BANK
+    # ------------------------------------------------------
+
+    if (
+        goal.bank_account_id is not None
+        and total_saved > 0
+    ):
+
+        bank_account = (
+            db.query(BankAccount)
+            .filter(
+                BankAccount.id == goal.bank_account_id,
+                BankAccount.user_id == current_user.id
+            )
+            .first()
+        )
+
+        if bank_account is not None:
+
+            bank_account.current_balance = (
+                float(bank_account.current_balance or 0)
+                + total_saved
+            )
+
+    # ------------------------------------------------------
+    # DELETE SAVINGS TRANSACTIONS
     # ------------------------------------------------------
 
     db.query(
         SavingsTransaction
     ).filter(
-        SavingsTransaction.goal_id == goal_id
+        SavingsTransaction.goal_id == goal_id,
+        SavingsTransaction.user_id == current_user.id
     ).delete(
         synchronize_session=False
     )
@@ -555,8 +665,28 @@ def delete_savings_goal(
     # ------------------------------------------------------
 
     db.delete(goal)
+
+    # ------------------------------------------------------
+    # NOTIFICATION
+    # ------------------------------------------------------
+
+    if total_saved > 0:
+
+        notification = Notification(
+            user_id=current_user.id,
+            message=(
+                f"Savings goal deleted successfully. "
+                f"₹{total_saved:.2f} was returned to "
+                f"your bank account."
+            ),
+            notification_type="savings"
+        )
+
+        db.add(notification)
+
     db.commit()
 
     return {
-        "message": "Savings goal deleted successfully"
+        "message": "Savings goal deleted successfully",
+        "amount_returned": total_saved
     }

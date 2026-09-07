@@ -3,46 +3,60 @@ import { toast } from "react-toastify";
 import { useAuth } from "../../context/AuthContext";
 
 function Sidebar() {
-
     const navigate = useNavigate();
 
-    const {
-        user,
-        loading
-    } = useAuth();
-
+    const { user, loading } = useAuth();
 
     if (loading) {
         return null;
     }
 
 
-    const handleLogout = () => {
+    // ==========================================
+    // LOGOUT
+    // ==========================================
 
+    const handleLogout = () => {
         localStorage.removeItem("token");
 
-        toast.success(
-            "Logged out successfully"
-        );
+        toast.success("Logged out successfully");
 
         setTimeout(() => {
-
-            window.location.href =
-                "/login";
-
+            window.location.href = "/login";
         }, 500);
     };
 
 
+    // ==========================================
+    // CREATE NEW ACCOUNT
+    // ==========================================
+
     const handleCreateAccount = () => {
-
         navigate("/register");
-
     };
 
 
-    return (
+    // ==========================================
+    // PREMIUM PAGE
+    // ==========================================
 
+    const handlePremiumPage = () => {
+        navigate("/premium");
+    };
+
+
+    // ==========================================
+    // SYSTEM ANALYTICS ACCESS
+    //
+    // Premium Users + Admin
+    // ==========================================
+
+    const canViewAnalytics =
+        user?.plan === "premium" ||
+        user?.role === "admin";
+
+
+    return (
         <div
             style={{
                 width: "250px",
@@ -54,7 +68,9 @@ function Sidebar() {
             }}
         >
 
-            {/* LOGO */}
+            {/* ==========================================
+                LOGO
+            ========================================== */}
 
             <h2
                 style={{
@@ -73,15 +89,33 @@ function Sidebar() {
                     fontSize: "18px",
                 }}
             >
+                {/* ==========================================
+                    PREMIUM USER BADGE
+                ========================================== */}
 
-                {/* DASHBOARD */}
+                {user?.plan === "premium" && user?.role !== "admin" && (
+                    <div
+                        style={{
+                            background: "rgba(250, 204, 21, 0.15)",
+                            border: "1px solid #facc15",
+                            color: "#facc15",
+                            padding: "10px 12px",
+                            borderRadius: "8px",
+                            marginBottom: "25px",
+                            textAlign: "center",
+                            fontWeight: "bold",
+                            fontSize: "15px",
+                        }}
+                    >
+                        ⭐ Premium User
+                    </div>
+                )}
 
-                <li
-                    style={{
-                        marginBottom: "15px"
-                    }}
-                >
+                {/* ==========================================
+                    DASHBOARD
+                ========================================== */}
 
+                <li style={{ marginBottom: "15px" }}>
                     <Link
                         to="/dashboard"
                         style={{
@@ -91,18 +125,14 @@ function Sidebar() {
                     >
                         🏠 Dashboard
                     </Link>
-
                 </li>
 
 
-                {/* INCOME */}
+                {/* ==========================================
+                    INCOME
+                ========================================== */}
 
-                <li
-                    style={{
-                        marginBottom: "15px"
-                    }}
-                >
-
+                <li style={{ marginBottom: "15px" }}>
                     <Link
                         to="/income"
                         style={{
@@ -112,18 +142,14 @@ function Sidebar() {
                     >
                         💵 Income
                     </Link>
-
                 </li>
 
 
-                {/* EXPENSES */}
+                {/* ==========================================
+                    EXPENSES
+                ========================================== */}
 
-                <li
-                    style={{
-                        marginBottom: "15px"
-                    }}
-                >
-
+                <li style={{ marginBottom: "15px" }}>
                     <Link
                         to="/expenses"
                         style={{
@@ -133,18 +159,14 @@ function Sidebar() {
                     >
                         💸 Expenses
                     </Link>
-
                 </li>
 
 
-                {/* BANK ACCOUNTS */}
+                {/* ==========================================
+                    BANK ACCOUNTS
+                ========================================== */}
 
-                <li
-                    style={{
-                        marginBottom: "15px"
-                    }}
-                >
-
+                <li style={{ marginBottom: "15px" }}>
                     <Link
                         to="/banks"
                         style={{
@@ -154,18 +176,14 @@ function Sidebar() {
                     >
                         🏦 Bank Accounts
                     </Link>
-
                 </li>
 
 
-                {/* BUDGET */}
+                {/* ==========================================
+                    BUDGET
+                ========================================== */}
 
-                <li
-                    style={{
-                        marginBottom: "15px"
-                    }}
-                >
-
+                <li style={{ marginBottom: "15px" }}>
                     <Link
                         to="/budgets"
                         style={{
@@ -175,18 +193,14 @@ function Sidebar() {
                     >
                         📊 Budget
                     </Link>
-
                 </li>
 
 
-                {/* SAVINGS GOALS */}
+                {/* ==========================================
+                    SAVINGS GOALS
+                ========================================== */}
 
-                <li
-                    style={{
-                        marginBottom: "15px"
-                    }}
-                >
-
+                <li style={{ marginBottom: "15px" }}>
                     <Link
                         to="/savings-goals"
                         style={{
@@ -196,18 +210,14 @@ function Sidebar() {
                     >
                         🎯 Savings Goals
                     </Link>
-
                 </li>
 
 
-                {/* REPORTS */}
+                {/* ==========================================
+                    REPORTS
+                ========================================== */}
 
-                <li
-                    style={{
-                        marginBottom: "15px"
-                    }}
-                >
-
+                <li style={{ marginBottom: "15px" }}>
                     <Link
                         to="/reports"
                         style={{
@@ -217,18 +227,14 @@ function Sidebar() {
                     >
                         📈 Reports
                     </Link>
-
                 </li>
 
 
-                {/* NOTIFICATIONS */}
+                {/* ==========================================
+                    NOTIFICATIONS
+                ========================================== */}
 
-                <li
-                    style={{
-                        marginBottom: "15px"
-                    }}
-                >
-
+                <li style={{ marginBottom: "15px" }}>
                     <Link
                         to="/notifications"
                         style={{
@@ -238,26 +244,24 @@ function Sidebar() {
                     >
                         🔔 Notifications
                     </Link>
-
                 </li>
+                
 
-
-                {/* =================================
-                    ADMIN PANEL
-                    ONLY ADMIN
-                ================================= */}
+                {/* =====================================================
+                    ADMIN DASHBOARD
+                    ADMIN ONLY
+                ===================================================== */}
 
                 {user?.role === "admin" && (
-
                     <li
                         style={{
                             marginTop: "30px",
                             paddingTop: "20px",
                             borderTop:
                                 "1px solid rgba(255,255,255,0.3)",
+                            marginBottom: "15px",
                         }}
                     >
-
                         <Link
                             to="/admin"
                             style={{
@@ -266,17 +270,105 @@ function Sidebar() {
                                 fontWeight: "bold",
                             }}
                         >
-                            🛡️ Admin Panel
+                            🛡️ Admin Dashboard
                         </Link>
-
                     </li>
-
                 )}
 
 
-                {/* =================================
-                    PROFILE
-                ================================= */}
+                {/* =====================================================
+                    SYSTEM ANALYTICS
+                    PREMIUM USERS + ADMIN
+                ===================================================== */}
+
+                {canViewAnalytics && (
+                    <li
+                        style={{
+                            
+                            marginBottom: "15px",
+                        }}
+                    >
+                        <Link
+                            to="/system-analytics"
+                            style={{
+                                color: "white",
+                                textDecoration: "none",
+                                fontWeight: "bold",
+                            }}
+                        >
+                            📊 System Analytics
+                        </Link>
+                    </li>
+                )}
+
+
+                {/* =====================================================
+                    USER MANAGEMENT
+                    ALL LOGGED-IN USERS
+                ===================================================== */}
+
+                <li
+                    style={{
+                        marginBottom: "15px",
+                    }}
+                >
+                    <Link
+                        to="/user-management"
+                        style={{
+                            color: "white",
+                            textDecoration: "none",
+                        }}
+                    >
+                        👥 User Management
+                    </Link>
+                </li>
+
+
+                
+
+                {/* ==========================================
+                    PREMIUM SUBSCRIPTION
+
+                    ONLY NORMAL USERS WHO ARE NOT PREMIUM
+                    ARE SHOWN THIS BUTTON.
+
+                    This only opens /premium.
+                ========================================== */}
+
+                {user?.role === "user" &&
+                    user?.plan !== "premium" && (
+                        <li
+                            style={{
+                                marginTop: "25px",
+                                marginBottom: "20px",
+                                paddingTop: "20px",
+                                borderTop:
+                                    "1px solid rgba(255,255,255,0.3)",
+                            }}
+                        >
+                            <button
+                                onClick={handlePremiumPage}
+                                style={{
+                                    width: "100%",
+                                    padding: "12px 10px",
+                                    border: "none",
+                                    borderRadius: "8px",
+                                    background: "#facc15",
+                                    color: "#1e3a8a",
+                                    fontWeight: "bold",
+                                    fontSize: "15px",
+                                    cursor: "pointer",
+                                }}
+                            >
+                                👑 Upgrade to Premium
+                            </button>
+                        </li>
+                    )}
+
+
+                {/* ==========================================
+                    ACCOUNT SECTION
+                ========================================== */}
 
                 <li
                     style={{
@@ -286,7 +378,6 @@ function Sidebar() {
                             "1px solid rgba(255,255,255,0.3)",
                     }}
                 >
-
                     <Link
                         to="/profile"
                         style={{
@@ -296,35 +387,34 @@ function Sidebar() {
                     >
                         👤 My Profile
                     </Link>
-
                 </li>
 
 
-                {/* CREATE NEW ACCOUNT */}
+                {/* ==========================================
+                    CREATE NEW ACCOUNT
+                ========================================== */}
 
                 <li
                     style={{
                         marginTop: "15px",
                         cursor: "pointer",
                     }}
-                    onClick={
-                        handleCreateAccount
-                    }
+                    onClick={handleCreateAccount}
                 >
                     ➕ Create New Account
                 </li>
 
 
-                {/* LOGOUT */}
+                {/* ==========================================
+                    LOGOUT
+                ========================================== */}
 
                 <li
                     style={{
                         marginTop: "15px",
                         cursor: "pointer",
                     }}
-                    onClick={
-                        handleLogout
-                    }
+                    onClick={handleLogout}
                 >
                     🚪 Logout
                 </li>
@@ -332,9 +422,9 @@ function Sidebar() {
             </ul>
 
 
-            {/* =================================
-                CURRENT USER
-            ================================= */}
+            {/* ==========================================
+                LOGGED-IN USER
+            ========================================== */}
 
             <div
                 style={{
@@ -355,35 +445,29 @@ function Sidebar() {
                     style={{
                         marginTop: "5px",
                         color: "#cbd5e1",
-                        textTransform:
-                            "capitalize",
+                        textTransform: "capitalize",
                     }}
                 >
                     Role: {user?.role}
                 </div>
 
 
-                {/* PLAN */}
-
-                {user?.role === "user" && (
-
-                    <div
-                        style={{
-                            marginTop: "5px",
-                            color: "#facc15",
-                            textTransform:
-                                "capitalize",
-                        }}
-                    >
-                        Plan: {user?.plan || "normal"}
-                    </div>
-
-                )}
+                <div
+                    style={{
+                        marginTop: "5px",
+                        color:
+                            user?.plan === "premium"
+                                ? "#facc15"
+                                : "#cbd5e1",
+                        textTransform: "capitalize",
+                    }}
+                >
+                    Plan: {user?.plan}
+                </div>
 
             </div>
 
         </div>
-
     );
 }
 

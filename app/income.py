@@ -20,6 +20,28 @@ router = APIRouter(
 )
 
 
+def validate_description(description):
+    if description is None or not str(description).strip():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Income description is required")
+    return str(description).strip()
+
+
+# ==================================================
+# OPENING BALANCE CHECK
+# ==================================================
+
+def is_opening_balance_income(income: Income) -> bool:
+    """
+    Identifies the special income record created from
+    the bank account's original/opening balance.
+    """
+
+    return (
+        income.source == "Bank Account Opening Balance"
+        or income.category == "Opening Balance"
+    )
+
+
 # ==================================================
 # CREATE INCOME
 # ==================================================
@@ -36,7 +58,29 @@ def create_income(
 ):
 
     # -----------------------------------------
-    # Check bank account if one was selected
+    # VALIDATE DESCRIPTION
+    # -----------------------------------------
+
+    income.description = validate_description(income.description)
+
+    # -----------------------------------------
+    # PREVENT MANUAL OPENING BALANCE CREATION
+    # -----------------------------------------
+
+    if (
+        income.source == "Bank Account Opening Balance"
+        or income.category == "Opening Balance"
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Opening Balance income is created "
+                "automatically and cannot be added manually."
+            )
+        )
+
+    # -----------------------------------------
+    # CHECK BANK ACCOUNT
     # -----------------------------------------
 
     bank = None
@@ -54,12 +98,12 @@ def create_income(
 
         if bank is None:
             raise HTTPException(
-                status_code=404,
+                status_code=status.HTTP_404_NOT_FOUND,
                 detail="Bank account not found"
             )
 
     # -----------------------------------------
-    # Create income
+    # CREATE INCOME
     # -----------------------------------------
 
     new_income = Income(
@@ -75,7 +119,7 @@ def create_income(
     db.add(new_income)
 
     # -----------------------------------------
-    # Add income notification
+    # ADD INCOME NOTIFICATION
     # -----------------------------------------
 
     create_notification(
@@ -86,7 +130,7 @@ def create_income(
     )
 
     # -----------------------------------------
-    # Add income amount to bank balance
+    # ADD INCOME TO BANK BALANCE
     # -----------------------------------------
 
     if bank is not None:
@@ -117,7 +161,8 @@ def get_all_income(
             Income.user_id == current_user.id
         )
         .order_by(
-            Income.date.desc()
+            Income.date.desc(),
+            Income.id.desc()
         )
         .all()
     )
@@ -173,7 +218,7 @@ def get_income(
 
     if income is None:
         raise HTTPException(
-            status_code=404,
+            status_code=status.HTTP_404_NOT_FOUND,
             detail="Income not found"
         )
 
@@ -196,7 +241,7 @@ def update_income(
 ):
 
     # -----------------------------------------
-    # Find existing income
+    # FIND EXISTING INCOME
     # -----------------------------------------
 
     db_income = (
@@ -210,8 +255,45 @@ def update_income(
 
     if db_income is None:
         raise HTTPException(
-            status_code=404,
+            status_code=status.HTTP_404_NOT_FOUND,
             detail="Income not found"
+        )
+
+    # -----------------------------------------
+    # VALIDATE DESCRIPTION
+    # -----------------------------------------
+
+    income.description = validate_description(income.description)
+
+    # -----------------------------------------
+    # PROTECT OPENING BALANCE
+    # -----------------------------------------
+
+    if is_opening_balance_income(db_income):
+
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Opening Balance income cannot be modified."
+            )
+        )
+
+    # -----------------------------------------
+    # PREVENT CONVERTING NORMAL INCOME
+    # INTO OPENING BALANCE
+    # -----------------------------------------
+
+    if (
+        income.source == "Bank Account Opening Balance"
+        or income.category == "Opening Balance"
+    ):
+
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Opening Balance income cannot be "
+                "created or assigned manually."
+            )
         )
 
     # -----------------------------------------
@@ -250,7 +332,7 @@ def update_income(
 
         if new_bank is None:
             raise HTTPException(
-                status_code=404,
+                status_code=status.HTTP_404_NOT_FOUND,
                 detail="Bank account not found"
             )
 
@@ -259,6 +341,7 @@ def update_income(
     # -----------------------------------------
 
     if old_bank is not None:
+
         old_bank.current_balance -= db_income.amount
 
     # -----------------------------------------
@@ -266,6 +349,7 @@ def update_income(
     # -----------------------------------------
 
     if new_bank is not None:
+
         new_bank.current_balance += income.amount
 
     # -----------------------------------------
@@ -299,7 +383,7 @@ def delete_income(
 ):
 
     # -----------------------------------------
-    # Find income
+    # FIND INCOME
     # -----------------------------------------
 
     db_income = (
@@ -313,12 +397,25 @@ def delete_income(
 
     if db_income is None:
         raise HTTPException(
-            status_code=404,
+            status_code=status.HTTP_404_NOT_FOUND,
             detail="Income not found"
         )
 
     # -----------------------------------------
-    # Remove money from bank
+    # PROTECT OPENING BALANCE
+    # -----------------------------------------
+
+    if is_opening_balance_income(db_income):
+
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Opening Balance income cannot be deleted."
+            )
+        )
+
+    # -----------------------------------------
+    # REMOVE MONEY FROM BANK
     # -----------------------------------------
 
     if db_income.bank_account_id is not None:
@@ -333,10 +430,11 @@ def delete_income(
         )
 
         if bank is not None:
+
             bank.current_balance -= db_income.amount
 
     # -----------------------------------------
-    # Delete income
+    # DELETE INCOME
     # -----------------------------------------
 
     db.delete(db_income)
@@ -369,6 +467,10 @@ def search_income(
             Income.source.ilike(
                 f"%{keyword}%"
             )
+        )
+        .order_by(
+            Income.date.desc(),
+            Income.id.desc()
         )
         .all()
     )

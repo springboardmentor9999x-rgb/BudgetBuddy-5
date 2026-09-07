@@ -1,10 +1,19 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    status
+)
+
+from pydantic import BaseModel, EmailStr
+
 from fastapi.security import (
     OAuth2PasswordBearer,
     OAuth2PasswordRequestForm
 )
+
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 
 from datetime import datetime, timedelta
 import random
@@ -15,25 +24,22 @@ from app.models import User
 from app.schemas import (
     UserCreate,
     UserResponse,
-    OTPVerify,
-    ForgotPasswordRequest,
-    ResetPasswordRequest,
-    Token,
+    OTPVerify
 )
 
 from app.auth import (
     hash_password,
     verify_password,
     create_access_token,
-    decode_access_token,
+    decode_access_token
 )
 
 from app.email_utils import send_otp_email
 
 
-# ============================================================
+# ==========================================================
 # ROUTER
-# ============================================================
+# ==========================================================
 
 router = APIRouter(
     prefix="/auth",
@@ -41,18 +47,36 @@ router = APIRouter(
 )
 
 
-# ============================================================
+# ==========================================================
 # OAUTH2
-# ============================================================
+# ==========================================================
 
 oauth2_scheme = OAuth2PasswordBearer(
-    tokenUrl="/auth/login"
+    tokenUrl="auth/login"
 )
 
 
-# ============================================================
+# ==========================================================
+# ACCOUNT UPDATE SCHEMA
+# ==========================================================
+
+class AccountUpdateRequest(BaseModel):
+    username: str
+    email: EmailStr
+
+
+# ==========================================================
+# CHANGE PASSWORD SCHEMA
+# ==========================================================
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+
+# ==========================================================
 # REGISTER
-# ============================================================
+# ==========================================================
 
 @router.post(
     "/register",
@@ -65,59 +89,59 @@ def register(
 ):
 
     username = user.username.strip()
-    email = user.email.lower().strip()
+    email = user.email.strip().lower()
 
-    # --------------------------------------------------------
-    # Check existing username/email
-    # --------------------------------------------------------
+    # ------------------------------------------------------
+    # CHECK USERNAME / EMAIL
+    # ------------------------------------------------------
 
     existing_user = (
         db.query(User)
         .filter(
             or_(
-                User.username == username,
-                User.email == email
+                func.lower(User.username) == username.lower(),
+                func.lower(User.email) == email
             )
         )
         .first()
     )
 
     if existing_user:
+
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Username or Email already exists"
         )
 
-    # --------------------------------------------------------
-    # Generate OTP
-    # --------------------------------------------------------
+    # ------------------------------------------------------
+    # GENERATE OTP
+    # ------------------------------------------------------
 
-    otp = str(random.randint(100000, 999999))
+    otp = str(
+        random.randint(100000, 999999)
+    )
 
     expiry = (
         datetime.utcnow()
         + timedelta(minutes=10)
     )
 
-    # --------------------------------------------------------
+    # ------------------------------------------------------
     # CREATE USER
-    #
-    # Every newly registered account:
-    # role = user
-    # plan = normal
-    # --------------------------------------------------------
+    # ------------------------------------------------------
 
     new_user = User(
         username=username,
         email=email,
         password=hash_password(user.password),
 
+        # All new registrations are normal users
         role="user",
-        plan="normal",
 
         verified=False,
 
         verification_code=otp,
+
         verification_code_expires_at=expiry
     )
 
@@ -125,9 +149,9 @@ def register(
     db.commit()
     db.refresh(new_user)
 
-    # --------------------------------------------------------
-    # Send OTP
-    # --------------------------------------------------------
+    # ------------------------------------------------------
+    # SEND OTP
+    # ------------------------------------------------------
 
     send_otp_email(
         new_user.email,
@@ -137,9 +161,9 @@ def register(
     return new_user
 
 
-# ============================================================
+# ==========================================================
 # VERIFY OTP
-# ============================================================
+# ==========================================================
 
 @router.post("/verify-otp")
 def verify_otp(
@@ -147,56 +171,70 @@ def verify_otp(
     db: Session = Depends(get_db)
 ):
 
-    email = data.email.lower().strip()
+    email = data.email.strip().lower()
 
     user = (
         db.query(User)
-        .filter(User.email == email)
+        .filter(
+            func.lower(User.email) == email
+        )
         .first()
     )
 
     if not user:
+
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found"
         )
 
-    if user.verified:
-        return {
-            "message": "Email is already verified"
-        }
+    # ------------------------------------------------------
+    # CHECK OTP
+    # ------------------------------------------------------
 
     if user.verification_code != data.otp:
+
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid OTP"
         )
 
+    # ------------------------------------------------------
+    # CHECK OTP EXPIRY
+    # ------------------------------------------------------
+
     if (
         user.verification_code_expires_at is None
-        or datetime.utcnow()
+        or
+        datetime.utcnow()
         > user.verification_code_expires_at
     ):
+
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="OTP has expired"
+            detail="OTP expired"
         )
 
+    # ------------------------------------------------------
+    # VERIFY USER
+    # ------------------------------------------------------
+
     user.verified = True
+
     user.verification_code = None
+
     user.verification_code_expires_at = None
 
     db.commit()
-    db.refresh(user)
 
     return {
         "message": "Email verified successfully"
     }
 
 
-# ============================================================
+# ==========================================================
 # RESEND OTP
-# ============================================================
+# ==========================================================
 
 @router.post("/resend-otp/{email}")
 def resend_otp(
@@ -204,27 +242,37 @@ def resend_otp(
     db: Session = Depends(get_db)
 ):
 
-    email = email.lower().strip()
+    email = email.strip().lower()
 
     user = (
         db.query(User)
-        .filter(User.email == email)
+        .filter(
+            func.lower(User.email) == email
+        )
         .first()
     )
 
     if not user:
+
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found"
         )
 
     if user.verified:
+
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Email is already verified"
         )
 
-    otp = str(random.randint(100000, 999999))
+    # ------------------------------------------------------
+    # NEW OTP
+    # ------------------------------------------------------
+
+    otp = str(
+        random.randint(100000, 999999)
+    )
 
     user.verification_code = otp
 
@@ -245,89 +293,113 @@ def resend_otp(
     }
 
 
-# ============================================================
+# ==========================================================
 # LOGIN
-# ============================================================
+# USERNAME OR EMAIL
+# ==========================================================
 
-@router.post(
-    "/login",
-    response_model=Token
-)
+@router.post("/login")
 def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db)
 ):
 
-    login_value = form_data.username.strip()
+    login_value = (
+        form_data.username.strip()
+    )
 
-    # --------------------------------------------------------
-    # Find user using username OR email
-    # --------------------------------------------------------
+    print("\n" + "=" * 60)
+    print("LOGIN ATTEMPT")
+    print("LOGIN VALUE:", login_value)
+    print("=" * 60)
+
+    # ------------------------------------------------------
+    # FIND USER
+    # ------------------------------------------------------
 
     user = (
         db.query(User)
         .filter(
             or_(
-                User.username == login_value,
-                User.email == login_value.lower()
+                func.lower(User.username)
+                == login_value.lower(),
+
+                func.lower(User.email)
+                == login_value.lower()
             )
         )
         .first()
     )
 
+    # ------------------------------------------------------
+    # USER NOT FOUND
+    # ------------------------------------------------------
+
     if user is None:
+
+        print("❌ USER NOT FOUND")
+
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid username/email or password"
+            detail="Invalid username/email or password",
+            headers={
+                "WWW-Authenticate": "Bearer"
+            }
         )
 
-    # --------------------------------------------------------
-    # Verify password
-    # --------------------------------------------------------
+    print("USER FOUND")
+    print("ID      :", user.id)
+    print("USERNAME:", user.username)
+    print("EMAIL   :", user.email)
+    print("ROLE    :", user.role)
+    print("PLAN    :", user.plan)
+    print("VERIFIED:", user.verified)
+
+    # ------------------------------------------------------
+    # PASSWORD
+    # ------------------------------------------------------
 
     if not verify_password(
         form_data.password,
         user.password
     ):
+
+        print("❌ PASSWORD INCORRECT")
+
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid username/email or password"
+            detail="Invalid username/email or password",
+            headers={
+                "WWW-Authenticate": "Bearer"
+            }
         )
 
-    # --------------------------------------------------------
-    # Verify email
-    # --------------------------------------------------------
+    # ------------------------------------------------------
+    # EMAIL VERIFICATION
+    # ------------------------------------------------------
 
     if not user.verified:
+
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Please verify your email first"
+            detail="Please verify your email first."
         )
 
-    # --------------------------------------------------------
-    # IMPORTANT
-    #
-    # Always read role + plan from DATABASE.
-    #
-    # This means if admin changes a user's plan later,
-    # the next login receives the updated plan.
-    # --------------------------------------------------------
-
-    role = user.role or "user"
-    plan = user.plan or "normal"
-
-    # --------------------------------------------------------
-    # Create JWT
-    # --------------------------------------------------------
+    # ------------------------------------------------------
+    # CREATE JWT
+    # ------------------------------------------------------
 
     access_token = create_access_token(
         data={
             "sub": str(user.id),
             "username": user.username,
-            "role": role,
-            "plan": plan
+            "role": user.role,
+            "plan": user.plan
         }
     )
+
+    print("✅ LOGIN SUCCESSFUL")
+    print("=" * 60)
 
     return {
         "access_token": access_token,
@@ -335,161 +407,70 @@ def login(
     }
 
 
-# ============================================================
-# FORGOT PASSWORD
-# ============================================================
-
-@router.post("/forgot-password")
-def forgot_password(
-    data: ForgotPasswordRequest,
-    db: Session = Depends(get_db)
-):
-
-    email = data.email.lower().strip()
-
-    user = (
-        db.query(User)
-        .filter(User.email == email)
-        .first()
-    )
-
-    # Do not reveal whether email exists
-    if not user:
-        return {
-            "message": (
-                "If this email is registered, "
-                "a reset code has been sent"
-            )
-        }
-
-    otp = str(random.randint(100000, 999999))
-
-    user.verification_code = otp
-
-    user.verification_code_expires_at = (
-        datetime.utcnow()
-        + timedelta(minutes=10)
-    )
-
-    db.commit()
-
-    send_otp_email(
-        user.email,
-        otp
-    )
-
-    return {
-        "message": "Password reset OTP sent to your email"
-    }
-
-
-# ============================================================
-# RESET PASSWORD
-# ============================================================
-
-@router.post("/reset-password")
-def reset_password(
-    data: ResetPasswordRequest,
-    db: Session = Depends(get_db)
-):
-
-    email = data.email.lower().strip()
-
-    user = (
-        db.query(User)
-        .filter(User.email == email)
-        .first()
-    )
-
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
-
-    if user.verification_code != data.otp:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid OTP"
-        )
-
-    if (
-        user.verification_code_expires_at is None
-        or datetime.utcnow()
-        > user.verification_code_expires_at
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="OTP has expired"
-        )
-
-    user.password = hash_password(
-        data.new_password
-    )
-
-    user.verification_code = None
-    user.verification_code_expires_at = None
-
-    db.commit()
-    db.refresh(user)
-
-    return {
-        "message": "Password reset successfully"
-    }
-
-
-# ============================================================
+# ==========================================================
 # GET CURRENT USER
-# ============================================================
+# ==========================================================
 
 def get_current_user(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ):
 
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={
+            "WWW-Authenticate": "Bearer"
+        }
+    )
+
+    # ------------------------------------------------------
+    # DECODE TOKEN
+    # ------------------------------------------------------
+
     payload = decode_access_token(token)
 
     if payload is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not validate credentials"
-        )
+        raise credentials_exception
+
+    # ------------------------------------------------------
+    # GET USER ID
+    # ------------------------------------------------------
 
     user_id = payload.get("sub")
 
     if user_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token"
-        )
+        raise credentials_exception
 
     try:
+
         user_id = int(user_id)
 
     except (ValueError, TypeError):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token"
-        )
+
+        raise credentials_exception
+
+    # ------------------------------------------------------
+    # FIND USER IN DATABASE
+    # ------------------------------------------------------
 
     user = (
         db.query(User)
-        .filter(User.id == user_id)
+        .filter(
+            User.id == user_id
+        )
         .first()
     )
 
     if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found"
-        )
+        raise credentials_exception
 
     return user
 
 
-# ============================================================
-# CURRENT USER PROFILE
-# ============================================================
+# ==========================================================
+# GET /AUTH/ME
+# ==========================================================
 
 @router.get(
     "/me",
@@ -502,9 +483,225 @@ def get_me(
     return current_user
 
 
-# ============================================================
+# ==========================================================
+# UPDATE ACCOUNT INFORMATION
+# ==========================================================
+
+@router.put("/account")
+def update_account(
+    data: AccountUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+
+    new_username = (
+        data.username.strip()
+    )
+
+    new_email = (
+        str(data.email)
+        .lower()
+        .strip()
+    )
+
+    # ------------------------------------------------------
+    # VALIDATE USERNAME
+    # ------------------------------------------------------
+
+    if not new_username:
+
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username cannot be empty"
+        )
+
+    # ------------------------------------------------------
+    # CHECK USERNAME
+    # ------------------------------------------------------
+
+    username_exists = (
+        db.query(User)
+        .filter(
+            func.lower(User.username)
+            == new_username.lower(),
+
+            User.id != current_user.id
+        )
+        .first()
+    )
+
+    if username_exists:
+
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username already exists"
+        )
+
+    # ------------------------------------------------------
+    # CHECK EMAIL
+    # ------------------------------------------------------
+
+    email_exists = (
+        db.query(User)
+        .filter(
+            func.lower(User.email)
+            == new_email.lower(),
+
+            User.id != current_user.id
+        )
+        .first()
+    )
+
+    if email_exists:
+
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email already exists"
+        )
+
+    # ------------------------------------------------------
+    # UPDATE
+    # ------------------------------------------------------
+
+    current_user.username = new_username
+
+    current_user.email = new_email
+
+    db.commit()
+    db.refresh(current_user)
+
+    return {
+        "message": "Account information updated successfully",
+        "username": current_user.username,
+        "email": current_user.email
+    }
+
+
+# ==========================================================
+# SELF-SERVICE PREMIUM SUBSCRIPTION
+# ==========================================================
+
+@router.post("/subscribe-premium")
+def subscribe_premium(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+
+    # ------------------------------------------------------
+    # ADMIN
+    # ------------------------------------------------------
+
+    if current_user.role == "admin":
+
+        return {
+            "message": "Admin already has premium-level access.",
+            "id": current_user.id,
+            "username": current_user.username,
+            "role": current_user.role,
+            "plan": current_user.plan
+        }
+
+    # ------------------------------------------------------
+    # ALREADY PREMIUM
+    # ------------------------------------------------------
+
+    if current_user.plan == "premium":
+
+        return {
+            "message": "You are already a premium user.",
+            "id": current_user.id,
+            "username": current_user.username,
+            "role": current_user.role,
+            "plan": current_user.plan
+        }
+
+    # ------------------------------------------------------
+    # UPGRADE
+    # ------------------------------------------------------
+
+    current_user.plan = "premium"
+
+    db.commit()
+    db.refresh(current_user)
+
+    print("\n" + "=" * 60)
+    print("PREMIUM SUBSCRIPTION")
+    print("USER ID :", current_user.id)
+    print("USERNAME:", current_user.username)
+    print("PLAN    :", current_user.plan)
+    print("=" * 60)
+
+    return {
+        "message": "Premium subscription activated successfully.",
+        "id": current_user.id,
+        "username": current_user.username,
+        "role": current_user.role,
+        "plan": current_user.plan
+    }
+
+
+# ==========================================================
+# UPGRADE-PREMIUM
+#
+# Kept as a compatibility endpoint in case your existing
+# frontend still calls /auth/upgrade-premium.
+# ==========================================================
+
+@router.post("/upgrade-premium")
+def upgrade_premium(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+
+    # ------------------------------------------------------
+    # ADMIN
+    # ------------------------------------------------------
+
+    if current_user.role == "admin":
+
+        return {
+            "message": "Admin already has premium-level access.",
+            "id": current_user.id,
+            "username": current_user.username,
+            "role": current_user.role,
+            "plan": current_user.plan
+        }
+
+    # ------------------------------------------------------
+    # ALREADY PREMIUM
+    # ------------------------------------------------------
+
+    if current_user.plan == "premium":
+
+        return {
+            "message": "You are already a premium user.",
+            "id": current_user.id,
+            "username": current_user.username,
+            "role": current_user.role,
+            "plan": current_user.plan
+        }
+
+    # ------------------------------------------------------
+    # UPGRADE
+    # ------------------------------------------------------
+
+    current_user.plan = "premium"
+
+    db.commit()
+    db.refresh(current_user)
+
+    return {
+        "message": "Successfully upgraded to Premium.",
+        "id": current_user.id,
+        "username": current_user.username,
+        "role": current_user.role,
+        "plan": current_user.plan
+    }
+
+
+# ==========================================================
 # REQUIRE ADMIN
-# ============================================================
+# ==========================================================
 
 def require_admin(
     current_user: User = Depends(get_current_user)
@@ -520,59 +717,51 @@ def require_admin(
     return current_user
 
 
-# ============================================================
+# ==========================================================
 # REQUIRE PREMIUM
-# ============================================================
-#
-# Premium features:
-#
-#   PREMIUM USER -> allowed
-#   ADMIN        -> allowed
-#   NORMAL USER  -> blocked
-#
-# ============================================================
+# ==========================================================
 
 def require_premium(
     current_user: User = Depends(get_current_user)
 ):
 
+    # Admins have full access
+    if current_user.role == "admin":
+
+        return current_user
+
+    # Premium users have access
     if (
-        current_user.role != "admin"
-        and current_user.plan != "premium"
+        current_user.role == "user"
+        and current_user.plan == "premium"
     ):
 
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Premium subscription required"
-        )
+        return current_user
 
-    return current_user
+    # Everyone else is blocked
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Premium subscription required"
+    )
 
 
-# ============================================================
+# ==========================================================
 # REQUIRE NORMAL OR PREMIUM USER
-# ============================================================
-#
-# IMPORTANT:
-#
-# Admin is ALSO allowed here.
-#
-# This fixes your current problem:
-#
-# ADMIN -> Dashboard
-# NORMAL -> Dashboard
-# PREMIUM -> Dashboard
-#
-# ============================================================
-
+# ==========================================================
 def require_user(
     current_user: User = Depends(get_current_user)
 ):
+    """
+    Allow all authenticated BudgetBuddy accounts
+    to access common financial modules.
 
-    allowed_roles = ["user", "admin"]
+    Allowed:
+    - Normal users
+    - Premium users
+    - Administrators
+    """
 
-    if current_user.role not in allowed_roles:
-
+    if current_user.role not in ["user", "admin"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="User access required"
@@ -580,17 +769,9 @@ def require_user(
 
     return current_user
 
-
-# ============================================================
+# ==========================================================
 # REQUIRE NORMAL USER ONLY
-# ============================================================
-#
-# Only:
-#
-# role = user
-# plan = normal
-#
-# ============================================================
+# ==========================================================
 
 def require_normal_user(
     current_user: User = Depends(get_current_user)
@@ -604,39 +785,6 @@ def require_normal_user(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Normal user access required"
-        )
-
-    return current_user
-
-
-# ============================================================
-# REQUIRE PREMIUM USER ONLY
-# ============================================================
-#
-# Only:
-#
-# role = user
-# plan = premium
-#
-# Admin is NOT allowed here.
-#
-# Use this only when a feature is specifically for
-# premium customers and not administrators.
-#
-# ============================================================
-
-def require_premium_user(
-    current_user: User = Depends(get_current_user)
-):
-
-    if (
-        current_user.role != "user"
-        or current_user.plan != "premium"
-    ):
-
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Premium user access required"
         )
 
     return current_user

@@ -5,7 +5,6 @@ function DashboardRedirect() {
 
     const token = localStorage.getItem("token");
 
-    // No token
     if (!token) {
         return <Navigate to="/login" replace />;
     }
@@ -14,25 +13,24 @@ function DashboardRedirect() {
 
         const decoded = jwtDecode(token);
 
-        console.log("Dashboard redirect:", decoded);
+        console.log("DashboardRedirect JWT:", decoded);
 
-        const role = decoded.role;
-        const plan = decoded.plan;
-
-        // ------------------------------------------------
-        // EVERY VALID ACCOUNT GOES TO NORMAL DASHBOARD
-        // ------------------------------------------------
+        /*
+         * IMPORTANT:
+         *
+         * Every logged-in account first goes
+         * to the normal Dashboard.
+         *
+         * Admin / premium permissions are handled
+         * inside the application.
+         */
 
         if (
-            role === "admin" ||
-            role === "user"
+            decoded.role === "admin" ||
+            decoded.role === "user"
         ) {
             return <Navigate to="/dashboard" replace />;
         }
-
-        // ------------------------------------------------
-        // Invalid account
-        // ------------------------------------------------
 
         localStorage.removeItem("token");
 
@@ -41,7 +39,7 @@ function DashboardRedirect() {
     } catch (error) {
 
         console.error(
-            "Invalid token:",
+            "Invalid JWT:",
             error
         );
 

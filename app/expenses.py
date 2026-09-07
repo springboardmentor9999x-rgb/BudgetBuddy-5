@@ -29,6 +29,12 @@ router = APIRouter(
 )
 
 
+def validate_description(description):
+    if description is None or not str(description).strip():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Expense description is required")
+    return str(description).strip()
+
+
 # ==========================================================
 # CREATE EXPENSE
 # ==========================================================
@@ -43,6 +49,12 @@ def create_expense(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+
+    # ======================================================
+    # VALIDATE DESCRIPTION
+    # ======================================================
+
+    expense.description = validate_description(expense.description)
 
     # ======================================================
     # CHECK BANK ACCOUNT
@@ -509,6 +521,12 @@ def update_expense(
     current_user: User =
         Depends(get_current_user)
 ):
+
+    # ======================================================
+    # VALIDATE DESCRIPTION
+    # ======================================================
+
+    expense_data.description = validate_description(expense_data.description)
 
     # ======================================================
     # FIND EXPENSE

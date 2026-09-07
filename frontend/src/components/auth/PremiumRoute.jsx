@@ -5,32 +5,67 @@ function PremiumRoute({ children }) {
 
     const token = localStorage.getItem("token");
 
-    // No token → login
     if (!token) {
-        return <Navigate to="/login" replace />;
+        return (
+            <Navigate
+                to="/login"
+                replace
+            />
+        );
     }
 
     try {
+
         const decoded = jwtDecode(token);
 
-        // Premium features are available only to
-        // users whose plan is premium.
-        if (
-            decoded.role !== "user" ||
-            decoded.plan !== "premium"
-        ) {
-            return <Navigate to="/dashboard" replace />;
+        /*
+         * Admin is allowed to access premium
+         * functionality.
+         */
+
+        if (decoded.role === "admin") {
+            return children;
         }
 
-        return children;
+
+        /*
+         * Normal users must have premium plan.
+         */
+
+        if (
+            decoded.role === "user" &&
+            decoded.plan === "premium"
+        ) {
+            return children;
+        }
+
+
+        /*
+         * Normal-plan user.
+         */
+
+        return (
+            <Navigate
+                to="/dashboard"
+                replace
+            />
+        );
 
     } catch (error) {
 
-        console.error("Invalid token:", error);
+        console.error(
+            "Invalid token:",
+            error
+        );
 
         localStorage.removeItem("token");
 
-        return <Navigate to="/login" replace />;
+        return (
+            <Navigate
+                to="/login"
+                replace
+            />
+        );
     }
 }
 

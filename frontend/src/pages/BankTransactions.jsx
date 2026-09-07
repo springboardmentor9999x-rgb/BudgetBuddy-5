@@ -79,6 +79,16 @@ function BankTransactions() {
             0
         );
 
+    const totalSavings = transactions
+        .filter((item) => item.type === "Savings")
+        .reduce(
+            (total, item) =>
+                total + Number(item.amount),
+            0
+        );
+
+    const totalSpent = totalExpense + totalSavings;
+
 
     // ==========================================
     // FILTER
@@ -274,7 +284,7 @@ function BankTransactions() {
                 style={{
                     display: "grid",
                     gridTemplateColumns:
-                        "repeat(3, 1fr)",
+                        "repeat(5, 1fr)",
                     gap: "15px",
                     marginBottom: "20px",
                 }}
@@ -343,6 +353,76 @@ function BankTransactions() {
                     >
                         - ₹{" "}
                         {totalExpense.toLocaleString(
+                            "en-IN"
+                        )}
+                    </h2>
+
+                </div>
+
+
+                {/* SAVINGS */}
+
+                <div
+                    style={{
+                        background: "white",
+                        padding: "20px",
+                        borderRadius: "10px",
+                        borderLeft:
+                            "5px solid #b45309",
+                    }}
+                >
+
+                    <p
+                        style={{
+                            color: "#777",
+                            margin: 0,
+                        }}
+                    >
+                        Total Savings
+                    </p>
+
+                    <h2
+                        style={{
+                            color: "#b45309",
+                        }}
+                    >
+                        - ₹{" "}
+                        {totalSavings.toLocaleString(
+                            "en-IN"
+                        )}
+                    </h2>
+
+                </div>
+
+
+                {/* TOTAL SPENT */}
+
+                <div
+                    style={{
+                        background: "white",
+                        padding: "20px",
+                        borderRadius: "10px",
+                        borderLeft:
+                            "5px solid #7c3aed",
+                    }}
+                >
+
+                    <p
+                        style={{
+                            color: "#777",
+                            margin: 0,
+                        }}
+                    >
+                        Total Spent
+                    </p>
+
+                    <h2
+                        style={{
+                            color: "#7c3aed",
+                        }}
+                    >
+                        - ₹{" "}
+                        {totalSpent.toLocaleString(
                             "en-IN"
                         )}
                     </h2>
@@ -439,6 +519,10 @@ function BankTransactions() {
 
                     <option value="Expense">
                         Expense Only
+                    </option>
+
+                    <option value="Savings">
+                        Savings Only
                     </option>
                 </select>
 

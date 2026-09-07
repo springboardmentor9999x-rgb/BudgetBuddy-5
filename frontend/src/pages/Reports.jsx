@@ -5,38 +5,49 @@ import { toast } from "react-toastify";
 import Sidebar from "../components/layout/Sidebar";
 import Navbar from "../components/layout/Navbar";
 import api from "../services/api";
+import { useAuth } from "../context/AuthContext";
+
 
 function Reports() {
+
     const navigate = useNavigate();
+
+    const { user, loading: authLoading } = useAuth();
 
     const [banks, setBanks] = useState([]);
     const [selectedBank, setSelectedBank] = useState("");
 
-    const [loadingBanks, setLoadingBanks] =
-        useState(true);
+    const [loadingBanks, setLoadingBanks] = useState(true);
 
-    const [preview, setPreview] =
-        useState(null);
+    const [preview, setPreview] = useState(null);
+    const [loadingPreview, setLoadingPreview] = useState(false);
 
-    const [loadingPreview, setLoadingPreview] =
-        useState(false);
+    const [downloadingPdf, setDownloadingPdf] = useState(false);
+    const [downloadingExcel, setDownloadingExcel] = useState(false);
 
-    const [downloadingPdf, setDownloadingPdf] =
-        useState(false);
+    const [reports, setReports] = useState([]);
+    const [loadingHistory, setLoadingHistory] = useState(false);
 
-    const [downloadingExcel, setDownloadingExcel] =
-        useState(false);
-
-    const [reports, setReports] =
-        useState([]);
-
-    const [loadingHistory, setLoadingHistory] =
-        useState(false);
+    const [showPremiumPopup, setShowPremiumPopup] = useState(false);
 
 
-    // ==================================================
-    // MODULES
-    // ==================================================
+    // ==========================================================
+    // ACCESS
+    // ==========================================================
+
+    const isAdmin = user?.role === "admin";
+
+    const isPremium =
+        user?.role === "user" &&
+        user?.plan === "premium";
+
+    const canDownload =
+        isAdmin || isPremium;
+
+
+    // ==========================================================
+    // REPORT MODULES
+    // ==========================================================
 
     const modules = [
         {
@@ -78,36 +89,43 @@ function Reports() {
     ];
 
 
-    const [selectedModules, setSelectedModules] =
-        useState([
-            "financial_summary",
-            "income_transactions",
-            "expense_transactions",
-            "income_categories",
-            "expense_categories",
-            "budget_report",
-            "savings_goals",
-            "savings_transactions",
-            "bank_account_details",
-        ]);
+    const [selectedModules, setSelectedModules] = useState(
+        modules.map((module) => module.key)
+    );
 
 
-    // ==================================================
-    // LOAD BANKS
-    // ==================================================
+    // ==========================================================
+    // LOAD DATA
+    // ==========================================================
 
     useEffect(() => {
+
+        if (authLoading) {
+            return;
+        }
+
+        if (!user) {
+            navigate("/login", { replace: true });
+            return;
+        }
+
         loadBanks();
         loadReportHistory();
-    }, []);
 
+    }, [authLoading, user]);
+
+
+    // ==========================================================
+    // LOAD BANKS
+    // ==========================================================
 
     const loadBanks = async () => {
+
         try {
+
             setLoadingBanks(true);
 
-            const response =
-                await api.get("/banks");
+            const response = await api.get("/banks");
 
             setBanks(response.data || []);
 
@@ -131,9 +149,9 @@ function Reports() {
     };
 
 
-    // ==================================================
+    // ==========================================================
     // LOAD REPORT HISTORY
-    // ==================================================
+    // ==========================================================
 
     const loadReportHistory = async () => {
 
@@ -141,12 +159,9 @@ function Reports() {
 
             setLoadingHistory(true);
 
-            const response =
-                await api.get("/reports");
+            const response = await api.get("/reports");
 
-            setReports(
-                response.data || []
-            );
+            setReports(response.data || []);
 
         } catch (error) {
 
@@ -163,21 +178,18 @@ function Reports() {
     };
 
 
-    // ==================================================
-    // MODULE CHECKBOX
-    // ==================================================
+    // ==========================================================
+    // TOGGLE MODULE
+    // ==========================================================
 
     const toggleModule = (moduleKey) => {
 
         setSelectedModules((previous) => {
 
-            if (
-                previous.includes(moduleKey)
-            ) {
+            if (previous.includes(moduleKey)) {
 
                 return previous.filter(
-                    (item) =>
-                        item !== moduleKey
+                    (item) => item !== moduleKey
                 );
 
             }
@@ -186,40 +198,42 @@ function Reports() {
                 ...previous,
                 moduleKey,
             ];
+
         });
     };
 
 
-    // ==================================================
+    // ==========================================================
     // SELECT ALL
-    // ==================================================
+    // ==========================================================
 
     const selectAllModules = () => {
 
         setSelectedModules(
             modules.map(
-                (module) =>
-                    module.key
+                (module) => module.key
             )
         );
+
     };
 
 
-    // ==================================================
+    // ==========================================================
     // CLEAR ALL
-    // ==================================================
+    // ==========================================================
 
     const clearAllModules = () => {
 
         setSelectedModules([]);
 
         setPreview(null);
+
     };
 
 
-    // ==================================================
-    // GET BANK NAME
-    // ==================================================
+    // ==========================================================
+    // SELECTED BANK NAME
+    // ==========================================================
 
     const getSelectedBankName = () => {
 
@@ -247,28 +261,37 @@ function Reports() {
                 bank.account_number
             ).slice(-4)
         );
+
     };
 
 
-    // ==================================================
+    // ==========================================================
     // MODULE QUERY
-    // ==================================================
+    // ==========================================================
 
     const getModulesQuery = () => {
 
         return selectedModules.join(",");
+
     };
 
 
-    // ==================================================
+    // ==========================================================
     // PREVIEW REPORT
-    // ==================================================
+    //
+    // NORMAL USER:
+    //       ALLOWED
+    //
+    // PREMIUM USER:
+    //       ALLOWED
+    //
+    // ADMIN:
+    //       ALLOWED
+    // ==========================================================
 
     const handlePreview = async () => {
 
-        if (
-            selectedModules.length === 0
-        ) {
+        if (selectedModules.length === 0) {
 
             toast.error(
                 "Please select at least one module"
@@ -277,14 +300,17 @@ function Reports() {
             return;
         }
 
+
         try {
 
             setLoadingPreview(true);
+
 
             let url =
                 `/reports/preview?modules=${encodeURIComponent(
                     getModulesQuery()
                 )}`;
+
 
             if (selectedBank) {
 
@@ -293,16 +319,18 @@ function Reports() {
 
             }
 
+
             const response =
                 await api.get(url);
 
-            setPreview(
-                response.data
-            );
+
+            setPreview(response.data);
+
 
             toast.success(
                 "Report preview generated"
             );
+
 
         } catch (error) {
 
@@ -311,40 +339,69 @@ function Reports() {
                 error.response?.data || error
             );
 
+
             toast.error(
                 error.response?.data?.detail ||
                 "Unable to generate report preview"
             );
+
 
         } finally {
 
             setLoadingPreview(false);
 
         }
+
     };
 
 
-    // ==================================================
-    // DOWNLOAD FILE
-    // ==================================================
+    // ==========================================================
+    // DOWNLOAD
+    //
+    // NORMAL USER:
+    //       SHOW PREMIUM POPUP
+    //
+    // PREMIUM USER:
+    //       DOWNLOAD
+    //
+    // ADMIN:
+    //       DOWNLOAD
+    // ==========================================================
 
-    const downloadFile = async (
-        type
-    ) => {
+    const downloadFile = async (type) => {
 
-        if (
-            selectedModules.length === 0
-        ) {
+        // ------------------------------------------------------
+        // IMPORTANT:
+        // NORMAL USER CANNOT DOWNLOAD
+        // ------------------------------------------------------
+
+        if (!canDownload) {
+
+            setShowPremiumPopup(true);
+
+            return;
+
+        }
+
+
+        // ------------------------------------------------------
+        // MODULE CHECK
+        // ------------------------------------------------------
+
+        if (selectedModules.length === 0) {
 
             toast.error(
                 "Please select at least one module"
             );
 
             return;
+
         }
+
 
         const isPdf =
             type === "pdf";
+
 
         try {
 
@@ -364,6 +421,7 @@ function Reports() {
                     getModulesQuery()
                 )}`;
 
+
             if (selectedBank) {
 
                 url +=
@@ -371,21 +429,23 @@ function Reports() {
 
             }
 
+
             const response =
-                await api.get(url, {
-                    responseType: "blob",
-                });
+                await api.get(
+                    url,
+                    {
+                        responseType: "blob",
+                    }
+                );
 
 
             const blob =
                 new Blob(
                     [response.data],
                     {
-                        type:
-                            isPdf
-                                ? "application/pdf"
-                                :
-                                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        type: isPdf
+                            ? "application/pdf"
+                            : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     }
                 );
 
@@ -395,26 +455,27 @@ function Reports() {
                     blob
                 );
 
+
             const link =
-                document.createElement(
-                    "a"
-                );
+                document.createElement("a");
+
 
             link.href =
                 downloadUrl;
+
 
             link.download =
                 isPdf
                     ? "BudgetBuddy_Financial_Report.pdf"
                     : "BudgetBuddy_Financial_Report.xlsx";
 
-            document.body.appendChild(
-                link
-            );
+
+            document.body.appendChild(link);
 
             link.click();
 
             link.remove();
+
 
             window.URL.revokeObjectURL(
                 downloadUrl
@@ -430,19 +491,21 @@ function Reports() {
 
             loadReportHistory();
 
+
         } catch (error) {
 
             console.error(
                 "REPORT DOWNLOAD ERROR:",
-                error.response?.data ||
-                error
+                error.response?.data || error
             );
+
 
             toast.error(
                 isPdf
                     ? "Unable to download PDF report"
                     : "Unable to download Excel report"
             );
+
 
         } finally {
 
@@ -451,12 +514,13 @@ function Reports() {
             setDownloadingExcel(false);
 
         }
+
     };
 
 
-    // ==================================================
+    // ==========================================================
     // FORMAT MONEY
-    // ==================================================
+    // ==========================================================
 
     const formatMoney = (value) => {
 
@@ -469,19 +533,20 @@ function Reports() {
                 maximumFractionDigits: 2,
             }
         )}`;
+
     };
 
 
-    // ==================================================
+    // ==========================================================
     // FORMAT DATE
-    // ==================================================
+    // ==========================================================
 
-    const formatDateTime = (
-        value
-    ) => {
+    const formatDateTime = (value) => {
 
         if (!value) {
+
             return "-";
+
         }
 
         return new Date(
@@ -489,16 +554,15 @@ function Reports() {
         ).toLocaleString(
             "en-IN"
         );
+
     };
 
 
-    // ==================================================
-    // DELETE HISTORY
-    // ==================================================
+    // ==========================================================
+    // DELETE REPORT
+    // ==========================================================
 
-    const deleteReport = async (
-        id
-    ) => {
+    const deleteReport = async (id) => {
 
         try {
 
@@ -506,25 +570,36 @@ function Reports() {
                 `/reports/${id}`
             );
 
+
             toast.success(
                 "Report deleted"
             );
 
+
             loadReportHistory();
+
 
         } catch (error) {
 
+            console.error(
+                "DELETE REPORT ERROR:",
+                error.response?.data || error
+            );
+
+
             toast.error(
+                error.response?.data?.detail ||
                 "Unable to delete report"
             );
 
         }
+
     };
 
 
-    // ==================================================
-    // TABLE COMPONENT
-    // ==================================================
+    // ==========================================================
+    // PREVIEW TABLE
+    // ==========================================================
 
     const PreviewTable = ({
         title,
@@ -533,6 +608,7 @@ function Reports() {
     }) => {
 
         return (
+
             <div
                 style={{
                     marginBottom: "30px",
@@ -548,11 +624,11 @@ function Reports() {
                     {title}
                 </h3>
 
+
                 <div
                     style={{
                         overflowX: "auto",
-                        border:
-                            "1px solid #e5e7eb",
+                        border: "1px solid #e5e7eb",
                         borderRadius: "8px",
                     }}
                 >
@@ -560,8 +636,7 @@ function Reports() {
                     <table
                         style={{
                             width: "100%",
-                            borderCollapse:
-                                "collapse",
+                            borderCollapse: "collapse",
                             minWidth: "700px",
                         }}
                     >
@@ -570,34 +645,23 @@ function Reports() {
 
                             <tr
                                 style={{
-                                    background:
-                                        "#2563eb",
+                                    background: "#2563eb",
                                     color: "white",
                                 }}
                             >
 
                                 {headers.map(
-                                    (
-                                        header,
-                                        index
-                                    ) => (
+                                    (header, index) => (
 
                                         <th
-                                            key={
-                                                index
-                                            }
+                                            key={index}
                                             style={{
-                                                padding:
-                                                    "11px",
-                                                textAlign:
-                                                    "left",
-                                                whiteSpace:
-                                                    "nowrap",
+                                                padding: "11px",
+                                                textAlign: "left",
+                                                whiteSpace: "nowrap",
                                             }}
                                         >
-                                            {
-                                                header
-                                            }
+                                            {header}
                                         </th>
 
                                     )
@@ -607,24 +671,19 @@ function Reports() {
 
                         </thead>
 
+
                         <tbody>
 
-                            {rows.length ===
-                            0 ? (
+                            {rows.length === 0 ? (
 
                                 <tr>
 
                                     <td
-                                        colSpan={
-                                            headers.length
-                                        }
+                                        colSpan={headers.length}
                                         style={{
-                                            padding:
-                                                "20px",
-                                            textAlign:
-                                                "center",
-                                            color:
-                                                "#64748b",
+                                            padding: "20px",
+                                            textAlign: "center",
+                                            color: "#64748b",
                                         }}
                                     >
                                         No data available
@@ -635,15 +694,10 @@ function Reports() {
                             ) : (
 
                                 rows.map(
-                                    (
-                                        row,
-                                        rowIndex
-                                    ) => (
+                                    (row, rowIndex) => (
 
                                         <tr
-                                            key={
-                                                rowIndex
-                                            }
+                                            key={rowIndex}
                                             style={{
                                                 borderBottom:
                                                     "1px solid #e5e7eb",
@@ -661,13 +715,10 @@ function Reports() {
                                                             columnIndex
                                                         }
                                                         style={{
-                                                            padding:
-                                                                "10px",
+                                                            padding: "10px",
                                                         }}
                                                     >
-                                                        {
-                                                            value
-                                                        }
+                                                        {value}
                                                     </td>
 
                                                 )
@@ -687,24 +738,79 @@ function Reports() {
                 </div>
 
             </div>
+
         );
+
     };
 
 
-    // ==================================================
-    // PREVIEW CONTENT
-    // ==================================================
+    // ==========================================================
+    // SUMMARY CARD
+    // ==========================================================
+
+    const SummaryCard = ({
+        title,
+        value,
+    }) => {
+
+        return (
+
+            <div
+                style={{
+                    background: "#f8fafc",
+                    border: "1px solid #e2e8f0",
+                    padding: "18px",
+                    borderRadius: "10px",
+                }}
+            >
+
+                <div
+                    style={{
+                        color: "#64748b",
+                        fontSize: "14px",
+                        marginBottom: "7px",
+                    }}
+                >
+                    {title}
+                </div>
+
+
+                <div
+                    style={{
+                        fontSize: "22px",
+                        fontWeight: "700",
+                        color: "#1e3a8a",
+                    }}
+                >
+                    {value}
+                </div>
+
+            </div>
+
+        );
+
+    };
+
+
+    // ==========================================================
+    // PREVIEW REPORT
+    // ==========================================================
 
     const PreviewReport = () => {
 
         if (!preview) {
+
             return null;
+
         }
+
 
         const summary =
             preview.financial_summary;
 
+
         return (
+
             <div
                 style={{
                     marginTop: "30px",
@@ -716,11 +822,14 @@ function Reports() {
                 }}
             >
 
+                {/* ------------------------------------------------
+                    PREVIEW HEADER
+                ------------------------------------------------ */}
+
                 <div
                     style={{
                         display: "flex",
-                        justifyContent:
-                            "space-between",
+                        justifyContent: "space-between",
                         alignItems: "center",
                         flexWrap: "wrap",
                         gap: "15px",
@@ -739,34 +848,29 @@ function Reports() {
                             Report Preview
                         </h2>
 
+
                         <p
                             style={{
-                                color:
-                                    "#64748b",
+                                color: "#64748b",
                                 marginBottom: 0,
                             }}
                         >
                             Report for:{" "}
                             <strong>
-                                {
-                                    preview.report_for
-                                }
+                                {preview.report_for}
                             </strong>
                         </p>
 
+
                         <p
                             style={{
-                                color:
-                                    "#64748b",
-                                marginTop:
-                                    "5px",
+                                color: "#64748b",
+                                marginTop: "5px",
                             }}
                         >
                             Generated on:{" "}
                             <strong>
-                                {
-                                    preview.generated_on
-                                }
+                                {preview.generated_on}
                             </strong>
                         </p>
 
@@ -775,63 +879,59 @@ function Reports() {
                 </div>
 
 
-                {/* FINANCIAL SUMMARY */}
+                {/* ------------------------------------------------
+                    FINANCIAL SUMMARY
+                ------------------------------------------------ */}
 
                 {summary && (
 
                     <div
                         style={{
-                            marginBottom:
-                                "30px",
+                            marginBottom: "30px",
                         }}
                     >
 
                         <h3
                             style={{
-                                color:
-                                    "#1e3a8a",
+                                color: "#1e3a8a",
                             }}
                         >
                             Financial Summary
                         </h3>
 
+
                         <div
                             style={{
-                                display:
-                                    "grid",
+                                display: "grid",
                                 gridTemplateColumns:
                                     "repeat(auto-fit, minmax(180px, 1fr))",
-                                gap:
-                                    "15px",
+                                gap: "15px",
                             }}
                         >
 
                             <SummaryCard
                                 title="Total Income"
                                 value={formatMoney(
-                                    summary[
-                                        "Total Income"
-                                    ]
+                                    summary["Total Income"]
                                 )}
                             />
+
 
                             <SummaryCard
                                 title="Total Expenses"
                                 value={formatMoney(
-                                    summary[
-                                        "Total Expenses"
-                                    ]
+                                    summary["Total Expenses"]
                                 )}
                             />
+
 
                             <SummaryCard
                                 title="Total Amount Saved"
                                 value={formatMoney(
-                                    summary[
-                                        "Total Amount Saved"
-                                    ]
+                                    summary["Total Amount Saved"]
                                 )}
                             />
+
 
                             <SummaryCard
                                 title="Balance"
@@ -847,7 +947,9 @@ function Reports() {
                 )}
 
 
-                {/* INCOME TRANSACTIONS */}
+                {/* ------------------------------------------------
+                    INCOME TRANSACTIONS
+                ------------------------------------------------ */}
 
                 {preview.income_transactions && (
 
@@ -868,9 +970,7 @@ function Reports() {
                                     row["Exact Time"],
                                     row.Source,
                                     row.Category,
-                                    formatMoney(
-                                        row.Amount
-                                    ),
+                                    formatMoney(row.Amount),
                                     row.Description,
                                 ]
                             )
@@ -880,7 +980,9 @@ function Reports() {
                 )}
 
 
-                {/* EXPENSE TRANSACTIONS */}
+                {/* ------------------------------------------------
+                    EXPENSE TRANSACTIONS
+                ------------------------------------------------ */}
 
                 {preview.expense_transactions && (
 
@@ -901,9 +1003,7 @@ function Reports() {
                                     row["Exact Time"],
                                     row.Category,
                                     row["Payment Method"],
-                                    formatMoney(
-                                        row.Amount
-                                    ),
+                                    formatMoney(row.Amount),
                                     row.Description,
                                 ]
                             )
@@ -913,7 +1013,9 @@ function Reports() {
                 )}
 
 
-                {/* INCOME CATEGORIES */}
+                {/* ------------------------------------------------
+                    INCOME CATEGORIES
+                ------------------------------------------------ */}
 
                 {preview.income_categories && (
 
@@ -928,9 +1030,7 @@ function Reports() {
                                 (row) => [
                                     row.Category,
                                     formatMoney(
-                                        row[
-                                            "Total Income"
-                                        ]
+                                        row["Total Income"]
                                     ),
                                 ]
                             )
@@ -940,7 +1040,9 @@ function Reports() {
                 )}
 
 
-                {/* EXPENSE CATEGORIES */}
+                {/* ------------------------------------------------
+                    EXPENSE CATEGORIES
+                ------------------------------------------------ */}
 
                 {preview.expense_categories && (
 
@@ -955,9 +1057,7 @@ function Reports() {
                                 (row) => [
                                     row.Category,
                                     formatMoney(
-                                        row[
-                                            "Total Spent"
-                                        ]
+                                        row["Total Spent"]
                                     ),
                                 ]
                             )
@@ -967,7 +1067,9 @@ function Reports() {
                 )}
 
 
-                {/* BUDGET */}
+                {/* ------------------------------------------------
+                    BUDGET
+                ------------------------------------------------ */}
 
                 {preview.budget_report && (
 
@@ -988,15 +1090,9 @@ function Reports() {
                                     row.Category,
                                     row.Month,
                                     row.Year,
-                                    formatMoney(
-                                        row.Limit
-                                    ),
-                                    formatMoney(
-                                        row.Spent
-                                    ),
-                                    formatMoney(
-                                        row.Remaining
-                                    ),
+                                    formatMoney(row.Limit),
+                                    formatMoney(row.Spent),
+                                    formatMoney(row.Remaining),
                                     `${row["Percentage Used"]}%`,
                                 ]
                             )
@@ -1006,7 +1102,9 @@ function Reports() {
                 )}
 
 
-                {/* SAVINGS GOALS */}
+                {/* ------------------------------------------------
+                    SAVINGS GOALS
+                ------------------------------------------------ */}
 
                 {preview.savings_goals && (
 
@@ -1023,15 +1121,9 @@ function Reports() {
                             preview.savings_goals.rows.map(
                                 (row) => [
                                     row.Goal,
-                                    formatMoney(
-                                        row.Target
-                                    ),
-                                    formatMoney(
-                                        row.Saved
-                                    ),
-                                    formatMoney(
-                                        row.Remaining
-                                    ),
+                                    formatMoney(row.Target),
+                                    formatMoney(row.Saved),
+                                    formatMoney(row.Remaining),
                                     `${row.Progress}%`,
                                 ]
                             )
@@ -1041,7 +1133,9 @@ function Reports() {
                 )}
 
 
-                {/* SAVINGS TRANSACTIONS */}
+                {/* ------------------------------------------------
+                    SAVINGS TRANSACTIONS
+                ------------------------------------------------ */}
 
                 {preview.savings_transactions && (
 
@@ -1059,9 +1153,7 @@ function Reports() {
                                     row.Date,
                                     row["Exact Time"],
                                     row.Goal,
-                                    formatMoney(
-                                        row.Amount
-                                    ),
+                                    formatMoney(row.Amount),
                                 ]
                             )
                         }
@@ -1070,7 +1162,9 @@ function Reports() {
                 )}
 
 
-                {/* BANK DETAILS */}
+                {/* ------------------------------------------------
+                    BANK ACCOUNT DETAILS
+                ------------------------------------------------ */}
 
                 {preview.bank_account_details && (
 
@@ -1088,17 +1182,11 @@ function Reports() {
                             preview.bank_account_details.rows.map(
                                 (row) => [
                                     row.Bank,
-                                    row[
-                                        "Account Holder"
-                                    ],
-                                    row[
-                                        "Account Number"
-                                    ],
+                                    row["Account Holder"],
+                                    row["Account Number"],
                                     row.IFSC,
                                     row.Type,
-                                    formatMoney(
-                                        row.Balance
-                                    ),
+                                    formatMoney(row.Balance),
                                 ]
                             )
                         }
@@ -1107,92 +1195,168 @@ function Reports() {
                 )}
 
 
-                {/* DOWNLOAD BUTTONS */}
+                {/* ==================================================
+                    DOWNLOAD BUTTONS
+                ================================================== */}
 
                 <div
                     style={{
-                        display: "flex",
-                        gap: "15px",
-                        flexWrap: "wrap",
-                        marginTop: "25px",
+                        marginTop: "30px",
+                        padding: "20px",
+                        borderRadius: "10px",
+                        background: canDownload
+                            ? "#f8fafc"
+                            : "#fff7ed",
+                        border: canDownload
+                            ? "1px solid #e2e8f0"
+                            : "1px solid #fed7aa",
                     }}
                 >
 
-                    <button
-                        onClick={() =>
-                            downloadFile("pdf")
-                        }
-                        disabled={
-                            downloadingPdf ||
-                            downloadingExcel
-                        }
-                        style={{
-                            flex: 1,
-                            minWidth:
-                                "220px",
-                            padding:
-                                "13px",
-                            border: "none",
-                            borderRadius:
-                                "8px",
-                            background:
-                                "#dc2626",
-                            color: "white",
-                            fontWeight:
-                                "600",
-                            cursor:
-                                "pointer",
-                        }}
-                    >
-                        {downloadingPdf
-                            ? "Generating PDF..."
-                            : "⬇ Download PDF"}
-                    </button>
+                    {!canDownload && (
+
+                        <div
+                            style={{
+                                marginBottom: "15px",
+                                color: "#9a3412",
+                                fontSize: "14px",
+                                textAlign: "center",
+                            }}
+                        >
+                            🔒 Downloading reports is a Premium feature.
+                            Upgrade to Premium to download PDF and Excel reports.
+                        </div>
+
+                    )}
 
 
-                    <button
-                        onClick={() =>
-                            downloadFile(
-                                "excel"
-                            )
-                        }
-                        disabled={
-                            downloadingPdf ||
-                            downloadingExcel
-                        }
+                    <div
                         style={{
-                            flex: 1,
-                            minWidth:
-                                "220px",
-                            padding:
-                                "13px",
-                            border: "none",
-                            borderRadius:
-                                "8px",
-                            background:
-                                "#16a34a",
-                            color: "white",
-                            fontWeight:
-                                "600",
-                            cursor:
-                                "pointer",
+                            display: "flex",
+                            gap: "15px",
+                            flexWrap: "wrap",
                         }}
                     >
-                        {downloadingExcel
-                            ? "Generating Excel..."
-                            : "⬇ Download Excel"}
-                    </button>
+
+                        {/* PDF */}
+
+                        <button
+                            onClick={() =>
+                                downloadFile("pdf")
+                            }
+                            disabled={
+                                downloadingPdf ||
+                                downloadingExcel
+                            }
+                            style={{
+                                flex: 1,
+                                minWidth: "220px",
+                                padding: "13px",
+                                border: "none",
+                                borderRadius: "8px",
+
+                                background: canDownload
+                                    ? "#dc2626"
+                                    : "#f97316",
+
+                                color: "white",
+                                fontWeight: "600",
+                                cursor:
+                                    downloadingPdf ||
+                                    downloadingExcel
+                                        ? "not-allowed"
+                                        : "pointer",
+                            }}
+                        >
+
+                            {downloadingPdf
+                                ? "Generating PDF..."
+                                : canDownload
+                                    ? "⬇ Download PDF"
+                                    : "🔒 Download PDF"}
+
+                        </button>
+
+
+                        {/* EXCEL */}
+
+                        <button
+                            onClick={() =>
+                                downloadFile("excel")
+                            }
+                            disabled={
+                                downloadingPdf ||
+                                downloadingExcel
+                            }
+                            style={{
+                                flex: 1,
+                                minWidth: "220px",
+                                padding: "13px",
+                                border: "none",
+                                borderRadius: "8px",
+
+                                background: canDownload
+                                    ? "#16a34a"
+                                    : "#f97316",
+
+                                color: "white",
+                                fontWeight: "600",
+                                cursor:
+                                    downloadingPdf ||
+                                    downloadingExcel
+                                        ? "not-allowed"
+                                        : "pointer",
+                            }}
+                        >
+
+                            {downloadingExcel
+                                ? "Generating Excel..."
+                                : canDownload
+                                    ? "⬇ Download Excel"
+                                    : "🔒 Download Excel"}
+
+                        </button>
+
+                    </div>
 
                 </div>
 
             </div>
+
         );
+
     };
 
 
-    // ==================================================
-    // UI
-    // ==================================================
+    // ==========================================================
+    // AUTH LOADING
+    // ==========================================================
+
+    if (authLoading) {
+
+        return (
+
+            <div
+                style={{
+                    minHeight: "100vh",
+                    display: "flex",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    background: "#f5f7fb",
+                    fontSize: "18px",
+                }}
+            >
+                Loading...
+            </div>
+
+        );
+
+    }
+
+
+    // ==========================================================
+    // MAIN UI
+    // ==========================================================
 
     return (
 
@@ -1200,8 +1364,7 @@ function Reports() {
             style={{
                 display: "flex",
                 minHeight: "100vh",
-                background:
-                    "#f5f7fb",
+                background: "#f5f7fb",
             }}
         >
 
@@ -1212,32 +1375,26 @@ function Reports() {
                 style={{
                     flex: 1,
                     padding: "20px",
-                    boxSizing:
-                        "border-box",
+                    boxSizing: "border-box",
                 }}
             >
 
                 <Navbar />
 
 
-                {/* HEADER */}
+                {/* ==================================================
+                    HEADER
+                ================================================== */}
 
                 <div
                     style={{
-                        display:
-                            "flex",
-                        justifyContent:
-                            "space-between",
-                        alignItems:
-                            "center",
-                        marginTop:
-                            "25px",
-                        marginBottom:
-                            "25px",
-                        flexWrap:
-                            "wrap",
-                        gap:
-                            "15px",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        marginTop: "25px",
+                        marginBottom: "25px",
+                        flexWrap: "wrap",
+                        gap: "15px",
                     }}
                 >
 
@@ -1246,46 +1403,76 @@ function Reports() {
                         <h1
                             style={{
                                 margin: 0,
-                                color:
-                                    "#111827",
+                                color: "#111827",
                             }}
                         >
                             Financial Reports
                         </h1>
 
+
                         <p
                             style={{
-                                color:
-                                    "#64748b",
+                                color: "#64748b",
+                                marginTop: "8px",
                             }}
                         >
-                            Select your bank account
-                            and the modules you want
-                            in your report.
+                            Select your bank account and the modules
+                            you want in your report.
                         </p>
+
+
+                        {/* USER PLAN */}
+
+                        <div
+                            style={{
+                                display: "inline-block",
+                                marginTop: "8px",
+                                padding: "5px 10px",
+                                borderRadius: "20px",
+                                fontSize: "13px",
+                                fontWeight: "600",
+
+                                background:
+                                    isAdmin
+                                        ? "#fee2e2"
+                                        : isPremium
+                                            ? "#ede9fe"
+                                            : "#e2e8f0",
+
+                                color:
+                                    isAdmin
+                                        ? "#dc2626"
+                                        : isPremium
+                                            ? "#7c3aed"
+                                            : "#475569",
+                            }}
+                        >
+
+                            {isAdmin
+                                ? "🛡️ Admin"
+                                : isPremium
+                                    ? "⭐ Premium User"
+                                    : "👤 Normal User"}
+
+                        </div>
 
                     </div>
 
 
+                    {/* BACK BUTTON */}
+
                     <button
                         onClick={() =>
-                            navigate(
-                                "/dashboard"
-                            )
+                            navigate("/dashboard")
                         }
                         style={{
-                            background:
-                                "#64748b",
-                            color:
-                                "white",
-                            border:
-                                "none",
-                            padding:
-                                "10px 18px",
-                            borderRadius:
-                                "7px",
-                            cursor:
-                                "pointer",
+                            background: "#64748b",
+                            color: "white",
+                            border: "none",
+                            padding: "10px 18px",
+                            borderRadius: "7px",
+                            cursor: "pointer",
+                            fontSize: "14px",
                         }}
                     >
                         ← Back to Dashboard
@@ -1294,16 +1481,15 @@ function Reports() {
                 </div>
 
 
-                {/* GENERATE CARD */}
+                {/* ==================================================
+                    GENERATE REPORT CARD
+                ================================================== */}
 
                 <div
                     style={{
-                        background:
-                            "white",
-                        padding:
-                            "30px",
-                        borderRadius:
-                            "12px",
+                        background: "white",
+                        padding: "30px",
+                        borderRadius: "12px",
                         boxShadow:
                             "0 2px 10px rgba(0,0,0,0.08)",
                     }}
@@ -1312,8 +1498,7 @@ function Reports() {
                     <h2
                         style={{
                             marginTop: 0,
-                            color:
-                                "#1e3a8a",
+                            color: "#1e3a8a",
                         }}
                     >
                         Generate Financial Report
@@ -1324,12 +1509,9 @@ function Reports() {
 
                     <label
                         style={{
-                            display:
-                                "block",
-                            fontWeight:
-                                "600",
-                            marginBottom:
-                                "8px",
+                            display: "block",
+                            fontWeight: "600",
+                            marginBottom: "8px",
                         }}
                     >
                         Bank Account
@@ -1337,30 +1519,20 @@ function Reports() {
 
 
                     <select
-                        value={
-                            selectedBank
-                        }
+                        value={selectedBank}
                         onChange={(e) =>
                             setSelectedBank(
                                 e.target.value
                             )
                         }
-                        disabled={
-                            loadingBanks
-                        }
+                        disabled={loadingBanks}
                         style={{
-                            width:
-                                "100%",
-                            padding:
-                                "12px",
-                            border:
-                                "1px solid #d1d5db",
-                            borderRadius:
-                                "7px",
-                            fontSize:
-                                "15px",
-                            marginBottom:
-                                "25px",
+                            width: "100%",
+                            padding: "12px",
+                            border: "1px solid #d1d5db",
+                            borderRadius: "7px",
+                            fontSize: "15px",
+                            marginBottom: "25px",
                         }}
                     >
 
@@ -1368,26 +1540,18 @@ function Reports() {
                             All Bank Accounts
                         </option>
 
+
                         {banks.map(
                             (bank) => (
 
                                 <option
-                                    key={
-                                        bank.id
-                                    }
-                                    value={
-                                        bank.id
-                                    }
+                                    key={bank.id}
+                                    value={bank.id}
                                 >
-                                    {
-                                        bank.bank_name
-                                    }{" "}
-                                    - ****
+                                    {bank.bank_name} - ****
                                     {String(
                                         bank.account_number
-                                    ).slice(
-                                        -4
-                                    )}
+                                    ).slice(-4)}
                                 </option>
 
                             )
@@ -1400,16 +1564,11 @@ function Reports() {
 
                     <div
                         style={{
-                            background:
-                                "#eff6ff",
-                            border:
-                                "1px solid #bfdbfe",
-                            padding:
-                                "15px",
-                            borderRadius:
-                                "8px",
-                            marginBottom:
-                                "25px",
+                            background: "#eff6ff",
+                            border: "1px solid #bfdbfe",
+                            padding: "15px",
+                            borderRadius: "8px",
+                            marginBottom: "25px",
                         }}
                     >
 
@@ -1417,17 +1576,14 @@ function Reports() {
                             Report for:
                         </strong>
 
+
                         <div
                             style={{
-                                marginTop:
-                                    "5px",
-                                color:
-                                    "#1e40af",
+                                marginTop: "5px",
+                                color: "#1e40af",
                             }}
                         >
-                            {
-                                getSelectedBankName()
-                            }
+                            {getSelectedBankName()}
                         </div>
 
                     </div>
@@ -1439,25 +1595,18 @@ function Reports() {
 
                         <div
                             style={{
-                                display:
-                                    "flex",
-                                justifyContent:
-                                    "space-between",
-                                alignItems:
-                                    "center",
-                                marginBottom:
-                                    "15px",
-                                flexWrap:
-                                    "wrap",
-                                gap:
-                                    "10px",
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                                marginBottom: "15px",
+                                flexWrap: "wrap",
+                                gap: "10px",
                             }}
                         >
 
                             <h3
                                 style={{
-                                    margin:
-                                        0,
+                                    margin: 0,
                                 }}
                             >
                                 Select Report Modules
@@ -1466,10 +1615,8 @@ function Reports() {
 
                             <div
                                 style={{
-                                    display:
-                                        "flex",
-                                    gap:
-                                        "8px",
+                                    display: "flex",
+                                    gap: "8px",
                                 }}
                             >
 
@@ -1481,16 +1628,11 @@ function Reports() {
                                     style={{
                                         border:
                                             "1px solid #2563eb",
-                                        background:
-                                            "white",
-                                        color:
-                                            "#2563eb",
-                                        padding:
-                                            "7px 12px",
-                                        borderRadius:
-                                            "6px",
-                                        cursor:
-                                            "pointer",
+                                        background: "white",
+                                        color: "#2563eb",
+                                        padding: "7px 12px",
+                                        borderRadius: "6px",
+                                        cursor: "pointer",
                                     }}
                                 >
                                     Select All
@@ -1505,16 +1647,11 @@ function Reports() {
                                     style={{
                                         border:
                                             "1px solid #dc2626",
-                                        background:
-                                            "white",
-                                        color:
-                                            "#dc2626",
-                                        padding:
-                                            "7px 12px",
-                                        borderRadius:
-                                            "6px",
-                                        cursor:
-                                            "pointer",
+                                        background: "white",
+                                        color: "#dc2626",
+                                        padding: "7px 12px",
+                                        borderRadius: "6px",
+                                        cursor: "pointer",
                                     }}
                                 >
                                     Clear All
@@ -1527,12 +1664,10 @@ function Reports() {
 
                         <div
                             style={{
-                                display:
-                                    "grid",
+                                display: "grid",
                                 gridTemplateColumns:
                                     "repeat(auto-fit, minmax(250px, 1fr))",
-                                gap:
-                                    "12px",
+                                gap: "12px",
                             }}
                         >
 
@@ -1540,24 +1675,17 @@ function Reports() {
                                 (module) => (
 
                                     <label
-                                        key={
-                                            module.key
-                                        }
+                                        key={module.key}
                                         style={{
-                                            display:
-                                                "flex",
-                                            alignItems:
-                                                "center",
-                                            gap:
-                                                "10px",
-                                            padding:
-                                                "12px",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: "10px",
+                                            padding: "12px",
                                             border:
                                                 "1px solid #e5e7eb",
-                                            borderRadius:
-                                                "8px",
-                                            cursor:
-                                                "pointer",
+                                            borderRadius: "8px",
+                                            cursor: "pointer",
+
                                             background:
                                                 selectedModules.includes(
                                                     module.key
@@ -1580,17 +1708,14 @@ function Reports() {
                                                 )
                                             }
                                             style={{
-                                                width:
-                                                    "18px",
-                                                height:
-                                                    "18px",
+                                                width: "18px",
+                                                height: "18px",
                                             }}
                                         />
 
+
                                         <span>
-                                            {
-                                                module.label
-                                            }
+                                            {module.label}
                                         </span>
 
                                     </label>
@@ -1611,61 +1736,57 @@ function Reports() {
                         }
                         disabled={
                             loadingPreview ||
-                            selectedModules.length ===
-                                0
+                            selectedModules.length === 0
                         }
                         style={{
-                            width:
-                                "100%",
-                            marginTop:
-                                "25px",
-                            padding:
-                                "14px",
-                            border:
-                                "none",
-                            borderRadius:
-                                "8px",
+                            width: "100%",
+                            marginTop: "25px",
+                            padding: "14px",
+                            border: "none",
+                            borderRadius: "8px",
+
                             background:
                                 loadingPreview
                                     ? "#94a3b8"
                                     : "#2563eb",
-                            color:
-                                "white",
-                            fontSize:
-                                "16px",
-                            fontWeight:
-                                "600",
+
+                            color: "white",
+                            fontSize: "16px",
+                            fontWeight: "600",
+
                             cursor:
                                 loadingPreview
                                     ? "not-allowed"
                                     : "pointer",
                         }}
                     >
+
                         {loadingPreview
                             ? "Generating Preview..."
                             : "👁 Preview Report"}
+
                     </button>
 
                 </div>
 
 
-                {/* PREVIEW */}
+                {/* ==================================================
+                    PREVIEW
+                ================================================== */}
 
                 <PreviewReport />
 
 
-                {/* REPORT HISTORY */}
+                {/* ==================================================
+                    REPORT HISTORY
+                ================================================== */}
 
                 <div
                     style={{
-                        marginTop:
-                            "30px",
-                        background:
-                            "white",
-                        padding:
-                            "30px",
-                        borderRadius:
-                            "12px",
+                        marginTop: "30px",
+                        background: "white",
+                        padding: "30px",
+                        borderRadius: "12px",
                         boxShadow:
                             "0 2px 10px rgba(0,0,0,0.08)",
                     }}
@@ -1673,19 +1794,17 @@ function Reports() {
 
                     <h2
                         style={{
-                            marginTop:
-                                0,
-                            color:
-                                "#1e3a8a",
+                            marginTop: 0,
+                            color: "#1e3a8a",
                         }}
                     >
                         Report History
                     </h2>
 
+
                     <p
                         style={{
-                            color:
-                                "#64748b",
+                            color: "#64748b",
                         }}
                     >
                         Previously generated financial reports.
@@ -1702,8 +1821,7 @@ function Reports() {
 
                         <p
                             style={{
-                                color:
-                                    "#64748b",
+                                color: "#64748b",
                             }}
                         >
                             No reports generated yet.
@@ -1713,17 +1831,14 @@ function Reports() {
 
                         <div
                             style={{
-                                overflowX:
-                                    "auto",
+                                overflowX: "auto",
                             }}
                         >
 
                             <table
                                 style={{
-                                    width:
-                                        "100%",
-                                    borderCollapse:
-                                        "collapse",
+                                    width: "100%",
+                                    borderCollapse: "collapse",
                                 }}
                             >
 
@@ -1731,50 +1846,44 @@ function Reports() {
 
                                     <tr
                                         style={{
-                                            background:
-                                                "#f1f5f9",
+                                            background: "#f1f5f9",
                                         }}
                                     >
 
                                         <th
                                             style={{
-                                                padding:
-                                                    "12px",
-                                                textAlign:
-                                                    "left",
+                                                padding: "12px",
+                                                textAlign: "left",
                                             }}
                                         >
                                             Report
                                         </th>
 
+
                                         <th
                                             style={{
-                                                padding:
-                                                    "12px",
-                                                textAlign:
-                                                    "left",
+                                                padding: "12px",
+                                                textAlign: "left",
                                             }}
                                         >
                                             Bank Account
                                         </th>
 
+
                                         <th
                                             style={{
-                                                padding:
-                                                    "12px",
-                                                textAlign:
-                                                    "left",
+                                                padding: "12px",
+                                                textAlign: "left",
                                             }}
                                         >
                                             Generated On
                                         </th>
 
+
                                         <th
                                             style={{
-                                                padding:
-                                                    "12px",
-                                                textAlign:
-                                                    "center",
+                                                padding: "12px",
+                                                textAlign: "center",
                                             }}
                                         >
                                             Action
@@ -1801,12 +1910,11 @@ function Reports() {
                                                         )
                                                 );
 
+
                                             return (
 
                                                 <tr
-                                                    key={
-                                                        report.id
-                                                    }
+                                                    key={report.id}
                                                     style={{
                                                         borderBottom:
                                                             "1px solid #e5e7eb",
@@ -1815,8 +1923,7 @@ function Reports() {
 
                                                     <td
                                                         style={{
-                                                            padding:
-                                                                "12px",
+                                                            padding: "12px",
                                                         }}
                                                     >
                                                         {
@@ -1824,25 +1931,23 @@ function Reports() {
                                                         }
                                                     </td>
 
+
                                                     <td
                                                         style={{
-                                                            padding:
-                                                                "12px",
+                                                            padding: "12px",
                                                         }}
                                                     >
                                                         {bank
                                                             ? `${bank.bank_name} - ****${String(
                                                                   bank.account_number
-                                                              ).slice(
-                                                                  -4
-                                                              )}`
+                                                              ).slice(-4)}`
                                                             : "All Bank Accounts"}
                                                     </td>
 
+
                                                     <td
                                                         style={{
-                                                            padding:
-                                                                "12px",
+                                                            padding: "12px",
                                                         }}
                                                     >
                                                         {formatDateTime(
@@ -1850,10 +1955,10 @@ function Reports() {
                                                         )}
                                                     </td>
 
+
                                                     <td
                                                         style={{
-                                                            padding:
-                                                                "12px",
+                                                            padding: "12px",
                                                             textAlign:
                                                                 "center",
                                                         }}
@@ -1904,64 +2009,178 @@ function Reports() {
 
             </div>
 
+
+            {/* ======================================================
+                PREMIUM POPUP
+            ====================================================== */}
+
+            {showPremiumPopup && (
+
+                <div
+                    style={{
+                        position: "fixed",
+                        inset: 0,
+                        background:
+                            "rgba(0,0,0,0.55)",
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        zIndex: 9999,
+                        padding: "20px",
+                    }}
+                    onClick={() =>
+                        setShowPremiumPopup(false)
+                    }
+                >
+
+                    <div
+                        onClick={(event) =>
+                            event.stopPropagation()
+                        }
+                        style={{
+                            width: "100%",
+                            maxWidth: "430px",
+                            background: "white",
+                            borderRadius: "16px",
+                            padding: "30px",
+                            textAlign: "center",
+                            boxShadow:
+                                "0 10px 40px rgba(0,0,0,0.25)",
+                        }}
+                    >
+
+                        <div
+                            style={{
+                                fontSize: "48px",
+                                marginBottom: "10px",
+                            }}
+                        >
+                            ⭐
+                        </div>
+
+
+                        <h2
+                            style={{
+                                marginTop: 0,
+                                color: "#1e3a8a",
+                            }}
+                        >
+                            Premium Feature
+                        </h2>
+
+
+                        <p
+                            style={{
+                                color: "#64748b",
+                                lineHeight: "1.6",
+                                marginBottom: "25px",
+                            }}
+                        >
+                            You can preview your financial report
+                            for free, but downloading PDF and Excel
+                            reports is available only for Premium users.
+                        </p>
+
+
+                        <div
+                            style={{
+                                background: "#f8fafc",
+                                borderRadius: "10px",
+                                padding: "15px",
+                                marginBottom: "25px",
+                                textAlign: "left",
+                            }}
+                        >
+
+                            <div
+                                style={{
+                                    marginBottom: "8px",
+                                }}
+                            >
+                                ✅ View financial reports
+                            </div>
+
+
+                            <div
+                                style={{
+                                    marginBottom: "8px",
+                                }}
+                            >
+                                ⭐ Download PDF reports
+                            </div>
+
+
+                            <div>
+                                ⭐ Download Excel reports
+                            </div>
+
+                        </div>
+
+
+                        {/* GET PREMIUM */}
+
+                        <button
+                            onClick={() => {
+
+                                setShowPremiumPopup(false);
+
+                                /*
+                                 * Change this route ONLY if your
+                                 * premium subscription page uses
+                                 * another route.
+                                 */
+
+                                navigate("/premium");
+
+                            }}
+                            style={{
+                                width: "100%",
+                                padding: "13px",
+                                border: "none",
+                                borderRadius: "8px",
+                                background: "#7c3aed",
+                                color: "white",
+                                fontSize: "16px",
+                                fontWeight: "600",
+                                cursor: "pointer",
+                                marginBottom: "10px",
+                            }}
+                        >
+                            ⭐ Get Premium
+                        </button>
+
+
+                        {/* CLOSE */}
+
+                        <button
+                            onClick={() =>
+                                setShowPremiumPopup(false)
+                            }
+                            style={{
+                                width: "100%",
+                                padding: "11px",
+                                border:
+                                    "1px solid #cbd5e1",
+                                borderRadius: "8px",
+                                background: "white",
+                                color: "#475569",
+                                fontSize: "15px",
+                                cursor: "pointer",
+                            }}
+                        >
+                            Maybe Later
+                        </button>
+
+                    </div>
+
+                </div>
+
+            )}
+
         </div>
-    );
-}
-
-
-// ======================================================
-// SUMMARY CARD
-// ======================================================
-
-function SummaryCard({
-    title,
-    value,
-}) {
-
-    return (
-
-        <div
-            style={{
-                background:
-                    "#f8fafc",
-                border:
-                    "1px solid #e2e8f0",
-                padding:
-                    "18px",
-                borderRadius:
-                    "10px",
-            }}
-        >
-
-            <div
-                style={{
-                    color:
-                        "#64748b",
-                    fontSize:
-                        "14px",
-                    marginBottom:
-                        "7px",
-                }}
-            >
-                {title}
-            </div>
-
-            <div
-                style={{
-                    fontSize:
-                        "22px",
-                    fontWeight:
-                        "700",
-                    color:
-                        "#1e3a8a",
-                }}
-            >
-                {value}
-            </div>
-
-        </div>
 
     );
+
 }
 
 

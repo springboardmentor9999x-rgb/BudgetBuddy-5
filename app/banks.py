@@ -1,25 +1,33 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
+from datetime import date
+
 from app.database import get_db
 from app.users import get_current_user
-from sqlalchemy.exc import IntegrityError
+
 from app.models import (
     BankAccount,
     User,
     Income,
     Expense,
+    SavingsTransaction,
+    SavingsGoal,
 )
+
 from app.schemas import (
     BankAccountCreate,
     BankAccountUpdate,
     BankAccountResponse,
 )
 
+
 router = APIRouter(
     prefix="/banks",
     tags=["Bank Accounts"]
 )
+
 
 # ==================================================
 # TOTAL BANK BALANCE
@@ -30,6 +38,7 @@ def total_bank_balance(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+
     total = (
         db.query(func.sum(BankAccount.current_balance))
         .filter(
@@ -41,6 +50,7 @@ def total_bank_balance(
     return {
         "total_balance": total or 0
     }
+
 
 # ==================================================
 # CREATE BANK ACCOUNT
@@ -138,7 +148,279 @@ def create_bank_account(
 
     db.refresh(new_bank)
 
+    # -----------------------------------------
+    # AUTOMATIC OPENING BALANCE INCOME
+    # -----------------------------------------
+
+    if (
+        new_bank.current_balance is not None
+        and new_bank.current_balance > 0
+    ):
+
+        opening_income = Income(
+            user_id=current_user.id,
+            source="Bank Account Opening Balance",
+            category="Opening Balance",
+            amount=new_bank.current_balance,
+            description=(
+                f"Initial balance added when "
+                f"{new_bank.bank_name} account was created"
+            ),
+            date=date.today(),
+            bank_account_id=new_bank.id,
+        )
+
+        db.add(opening_income)
+
+        db.commit()
+
     return new_bank
+
+
+# ==================================================
+# FIX EXISTING BANK OPENING BALANCES
+# ==================================================
+#
+# ONE-TIME USE
+#
+# This calculates the original opening balance
+# from existing transactions.
+#
+# Formula:
+#
+# Opening Balance =
+# Current Balance
+# - Existing Income
+# + Existing Expenses
+# + Existing Savings
+#
+# It does NOT modify:
+# - Current bank balance
+# - Existing income
+# - Existing expenses
+# - Existing savings
+#
+# It only creates the missing Opening Balance
+# Income record.
+# ==================================================
+
+@router.post("/fix-existing-opening-balances")
+def fix_existing_opening_balances(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+
+    banks = (
+        db.query(BankAccount)
+        .filter(
+            BankAccount.user_id == current_user.id
+        )
+        .all()
+    )
+
+    if not banks:
+
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No bank accounts found"
+        )
+
+    results = []
+
+    for bank in banks:
+
+        # -----------------------------------------
+        # CHECK IF OPENING BALANCE ALREADY EXISTS
+        # -----------------------------------------
+
+        existing_opening = (
+            db.query(Income)
+            .filter(
+                Income.user_id == current_user.id,
+                Income.bank_account_id == bank.id,
+                Income.source == "Bank Account Opening Balance",
+                Income.category == "Opening Balance"
+            )
+            .first()
+        )
+
+        if existing_opening is not None:
+
+            results.append({
+                "bank_id": bank.id,
+                "bank_name": bank.bank_name,
+                "status": "Already exists",
+                "opening_balance": float(
+                    existing_opening.amount
+                )
+            })
+
+            continue
+
+        # -----------------------------------------
+        # TOTAL NORMAL INCOME
+        # -----------------------------------------
+
+        income_total = (
+            db.query(
+                func.coalesce(
+                    func.sum(Income.amount),
+                    0
+                )
+            )
+            .filter(
+                Income.user_id == current_user.id,
+                Income.bank_account_id == bank.id,
+                Income.source != "Bank Account Opening Balance",
+                Income.category != "Opening Balance"
+            )
+            .scalar()
+        )
+
+        # -----------------------------------------
+        # TOTAL EXPENSE
+        # -----------------------------------------
+
+        expense_total = (
+            db.query(
+                func.coalesce(
+                    func.sum(Expense.amount),
+                    0
+                )
+            )
+            .filter(
+                Expense.user_id == current_user.id,
+                Expense.bank_account_id == bank.id
+            )
+            .scalar()
+        )
+
+        # -----------------------------------------
+        # TOTAL SAVINGS
+        # -----------------------------------------
+
+        savings_total = (
+            db.query(
+                func.coalesce(
+                    func.sum(SavingsTransaction.amount),
+                    0
+                )
+            )
+            .filter(
+                SavingsTransaction.user_id == current_user.id,
+                SavingsTransaction.bank_account_id == bank.id
+            )
+            .scalar()
+        )
+
+        # -----------------------------------------
+        # CALCULATE OPENING BALANCE
+        # -----------------------------------------
+
+        current_balance = float(
+            bank.current_balance or 0
+        )
+
+        income_total = float(
+            income_total or 0
+        )
+
+        expense_total = float(
+            expense_total or 0
+        )
+
+        savings_total = float(
+            savings_total or 0
+        )
+
+        opening_balance = (
+            current_balance
+            - income_total
+            + expense_total
+            + savings_total
+        )
+
+        # -----------------------------------------
+        # VALIDATION
+        # -----------------------------------------
+
+        if opening_balance < 0:
+
+            results.append({
+                "bank_id": bank.id,
+                "bank_name": bank.bank_name,
+                "status": "Skipped",
+                "message": (
+                    "Calculated opening balance is negative. "
+                    "Please check existing transactions."
+                ),
+                "calculated_opening_balance": round(
+                    opening_balance,
+                    2
+                )
+            })
+
+            continue
+
+        # -----------------------------------------
+        # CREATE OPENING BALANCE INCOME
+        # -----------------------------------------
+
+        opening_income = Income(
+            user_id=current_user.id,
+            source="Bank Account Opening Balance",
+            category="Opening Balance",
+            amount=opening_balance,
+            description=(
+                f"Original opening balance for "
+                f"{bank.bank_name} based on existing "
+                f"transactions"
+            ),
+            date=date.today(),
+            bank_account_id=bank.id,
+        )
+
+        db.add(opening_income)
+
+        results.append({
+            "bank_id": bank.id,
+            "bank_name": bank.bank_name,
+            "status": "Created",
+            "opening_balance": round(
+                opening_balance,
+                2
+            ),
+            "current_balance": round(
+                current_balance,
+                2
+            ),
+            "existing_income": round(
+                income_total,
+                2
+            ),
+            "existing_expenses": round(
+                expense_total,
+                2
+            ),
+            "existing_savings": round(
+                savings_total,
+                2
+            )
+        })
+
+    # -----------------------------------------
+    # SAVE ALL CHANGES
+    # -----------------------------------------
+
+    db.commit()
+
+    return {
+        "message": (
+            "Existing bank opening balances "
+            "processed successfully."
+        ),
+        "results": results
+    }
 
 
 # ==================================================
@@ -166,6 +448,7 @@ def get_bank_accounts(
         .all()
     )
 
+
 # ==================================================
 # GET BANK TRANSACTIONS
 # ==================================================
@@ -191,6 +474,7 @@ def get_bank_transactions(
     )
 
     if bank is None:
+
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Bank account not found"
@@ -218,6 +502,26 @@ def get_bank_transactions(
         .filter(
             Expense.user_id == current_user.id,
             Expense.bank_account_id == bank_id
+        )
+        .all()
+    )
+
+    # -----------------------------------------
+    # GET SAVINGS TRANSACTIONS FOR THIS BANK
+    # -----------------------------------------
+
+    savings_transactions = (
+        db.query(
+            SavingsTransaction,
+            SavingsGoal.goal_name
+        )
+        .join(
+            SavingsGoal,
+            SavingsTransaction.goal_id == SavingsGoal.id
+        )
+        .filter(
+            SavingsTransaction.user_id == current_user.id,
+            SavingsTransaction.bank_account_id == bank_id
         )
         .all()
     )
@@ -253,6 +557,24 @@ def get_bank_transactions(
         })
 
     # -----------------------------------------
+    # ADD SAVINGS TRANSACTIONS
+    # -----------------------------------------
+
+    for savings_transaction, goal_name in savings_transactions:
+
+        transactions.append({
+            "id": savings_transaction.id,
+            "type": "Savings",
+            "category": "Savings Goal",
+            "source": goal_name,
+            "amount": savings_transaction.amount,
+            "description": (
+                f"Added to savings goal: {goal_name}"
+            ),
+            "date": savings_transaction.transaction_date,
+        })
+
+    # -----------------------------------------
     # SORT BY DATE
     # -----------------------------------------
 
@@ -260,6 +582,30 @@ def get_bank_transactions(
         key=lambda transaction: transaction["date"],
         reverse=True
     )
+
+    # -----------------------------------------
+    # CALCULATE BANK TRANSACTION TOTALS
+    # -----------------------------------------
+
+    total_income = sum(
+        float(transaction["amount"] or 0)
+        for transaction in transactions
+        if transaction["type"] == "Income"
+    )
+
+    total_expense = sum(
+        float(transaction["amount"] or 0)
+        for transaction in transactions
+        if transaction["type"] == "Expense"
+    )
+
+    total_savings = sum(
+        float(transaction["amount"] or 0)
+        for transaction in transactions
+        if transaction["type"] == "Savings"
+    )
+
+    total_spent = total_expense + total_savings
 
     # -----------------------------------------
     # RETURN
@@ -273,8 +619,16 @@ def get_bank_transactions(
             "current_balance": bank.current_balance,
             "is_primary": bank.is_primary,
         },
+        "summary": {
+            "total_income": total_income,
+            "total_expense": total_expense,
+            "total_savings": total_savings,
+            "total_spent": total_spent,
+            "transaction_count": len(transactions),
+        },
         "transactions": transactions,
     }
+
 
 # ==================================================
 # GET ONE BANK ACCOUNT
@@ -300,6 +654,7 @@ def get_bank_account(
     )
 
     if bank is None:
+
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Bank account not found"
@@ -333,18 +688,30 @@ def update_bank_account(
     )
 
     if bank is None:
+
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Bank account not found"
         )
 
+    # -----------------------------------------
+    # SET PRIMARY ACCOUNT
+    # -----------------------------------------
+
     if bank_data.is_primary:
+
         db.query(BankAccount).filter(
             BankAccount.user_id == current_user.id,
             BankAccount.id != bank_id
         ).update(
-            {"is_primary": False}
+            {
+                "is_primary": False
+            }
         )
+
+    # -----------------------------------------
+    # UPDATE BANK DETAILS
+    # -----------------------------------------
 
     bank.bank_name = bank_data.bank_name
     bank.account_holder = bank_data.account_holder
@@ -355,6 +722,7 @@ def update_bank_account(
     bank.is_primary = bank_data.is_primary
 
     db.commit()
+
     db.refresh(bank)
 
     return bank
@@ -383,15 +751,16 @@ def delete_bank_account(
     )
 
     if bank is None:
+
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Bank account not found"
         )
 
     db.delete(bank)
+
     db.commit()
 
     return {
         "message": "Bank account deleted successfully"
     }
-

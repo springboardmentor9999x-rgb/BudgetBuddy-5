@@ -40,7 +40,7 @@ from app.models import (
     SavingsGoal,
     SavingsTransaction,
 )
-from app.users import get_current_user
+from app.users import get_current_user, require_premium
 
 
 router = APIRouter(
@@ -1046,7 +1046,7 @@ def get_reports(
     db: Session = Depends(get_db),
 
     current_user: User = Depends(
-        get_current_user
+        require_premium
     )
 ):
 
@@ -1847,7 +1847,7 @@ def download_pdf(
     db: Session = Depends(get_db),
 
     current_user: User = Depends(
-        get_current_user
+        require_premium
     )
 ):
 
@@ -2500,7 +2500,7 @@ def download_excel(
     db: Session = Depends(get_db),
 
     current_user: User = Depends(
-        get_current_user
+        require_premium
     )
 ):
 

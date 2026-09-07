@@ -8,19 +8,22 @@ import {
 import api from "../services/api";
 
 
-const AuthContext = createContext();
+const AuthContext = createContext(null);
 
 
 export function AuthProvider({ children }) {
 
     const [user, setUser] = useState(null);
 
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] =
+        useState(true);
 
 
-    // ==========================================
-    // LOAD CURRENT LOGGED-IN USER
-    // ==========================================
+    /*
+    ==================================================
+    LOAD CURRENT USER
+    ==================================================
+    */
 
     const loadUser = async () => {
 
@@ -31,21 +34,25 @@ export function AuthProvider({ children }) {
         if (!token) {
 
             setUser(null);
-
             setLoading(false);
 
-            return null;
+            return;
         }
 
 
         try {
+
+            console.log(
+                "Loading logged-in user..."
+            );
+
 
             const response =
                 await api.get("/auth/me");
 
 
             console.log(
-                "Logged in user:",
+                "Logged-in user:",
                 response.data
             );
 
@@ -53,24 +60,30 @@ export function AuthProvider({ children }) {
             setUser(response.data);
 
 
-            return response.data;
-
-
         } catch (error) {
 
             console.error(
-                "Unable to load user:",
+                "Failed to load user:",
                 error
             );
 
 
-            localStorage.removeItem("token");
+            /*
+             * Only remove token if the server
+             * actually says authentication failed.
+             */
 
-            setUser(null);
+            if (
+                error.response?.status === 401
+            ) {
 
+                localStorage.removeItem(
+                    "token"
+                );
 
-            return null;
+                setUser(null);
 
+            }
 
         } finally {
 
@@ -80,15 +93,34 @@ export function AuthProvider({ children }) {
     };
 
 
-    // ==========================================
-    // LOAD USER WHEN APPLICATION STARTS
-    // ==========================================
+    /*
+    ==================================================
+    LOAD USER WHEN APP STARTS
+    ==================================================
+    */
 
     useEffect(() => {
 
         loadUser();
 
     }, []);
+
+
+    /*
+    ==================================================
+    LOGOUT
+    ==================================================
+    */
+
+    const logout = () => {
+
+        localStorage.removeItem("token");
+
+        setUser(null);
+
+        window.location.href =
+            "/login";
+    };
 
 
     return (
@@ -98,7 +130,8 @@ export function AuthProvider({ children }) {
                 user,
                 setUser,
                 loadUser,
-                loading,
+                logout,
+                loading
             }}
         >
 

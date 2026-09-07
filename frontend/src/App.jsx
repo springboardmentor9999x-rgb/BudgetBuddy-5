@@ -1,11 +1,14 @@
 import VerifyOTP from "./pages/VerifyOTP";
+
 import {
     Routes,
     Route,
     Navigate
 } from "react-router-dom";
 
-import { ToastContainer } from "react-toastify";
+import {
+    ToastContainer
+} from "react-toastify";
 
 import AdminRoute from "./components/auth/AdminRoute";
 
@@ -22,15 +25,19 @@ import AdminDashboard from "./pages/AdminDashboard";
 import SavingsGoals from "./pages/SavingsGoals";
 import Notifications from "./pages/Notifications";
 import Reports from "./pages/Reports";
-
-import DashboardRedirect from "./components/auth/DashboardRedirect";
+import Premium from "./pages/Premium";
+import Profile from "./pages/Profile";
+import SystemAnalytics from "./pages/SystemAnalytics";
+import UserManagement from "./pages/UserManagement";
 
 function App() {
 
     const token = localStorage.getItem("token");
 
     return (
+
         <>
+
             <ToastContainer
                 position="top-right"
                 autoClose={2000}
@@ -38,12 +45,18 @@ function App() {
 
             <Routes>
 
-                {/* ROOT */}
+                {/* HOME */}
 
                 <Route
                     path="/"
-                    element={<DashboardRedirect />}
+                    element={
+                        <Navigate
+                            to="/register"
+                            replace
+                        />
+                    }
                 />
+
 
                 {/* AUTH */}
 
@@ -70,7 +83,10 @@ function App() {
                     element={
                         token
                             ? <Dashboard />
-                            : <Navigate to="/login" replace />
+                            : <Navigate
+                                to="/login"
+                                replace
+                            />
                     }
                 />
 
@@ -82,7 +98,10 @@ function App() {
                     element={
                         token
                             ? <Income />
-                            : <Navigate to="/login" replace />
+                            : <Navigate
+                                to="/login"
+                                replace
+                            />
                     }
                 />
 
@@ -94,7 +113,10 @@ function App() {
                     element={
                         token
                             ? <Expenses />
-                            : <Navigate to="/login" replace />
+                            : <Navigate
+                                to="/login"
+                                replace
+                            />
                     }
                 />
 
@@ -106,19 +128,10 @@ function App() {
                     element={
                         token
                             ? <Banks />
-                            : <Navigate to="/login" replace />
-                    }
-                />
-
-
-                {/* BUDGET */}
-
-                <Route
-                    path="/budgets"
-                    element={
-                        token
-                            ? <Budgets />
-                            : <Navigate to="/login" replace />
+                            : <Navigate
+                                to="/login"
+                                replace
+                            />
                     }
                 />
 
@@ -130,7 +143,25 @@ function App() {
                     element={
                         token
                             ? <BankTransactions />
-                            : <Navigate to="/login" replace />
+                            : <Navigate
+                                to="/login"
+                                replace
+                            />
+                    }
+                />
+
+
+                {/* BUDGET */}
+
+                <Route
+                    path="/budgets"
+                    element={
+                        token
+                            ? <Budgets />
+                            : <Navigate
+                                to="/login"
+                                replace
+                            />
                     }
                 />
 
@@ -142,19 +173,25 @@ function App() {
                     element={
                         token
                             ? <Transactions />
-                            : <Navigate to="/login" replace />
+                            : <Navigate
+                                to="/login"
+                                replace
+                            />
                     }
                 />
 
 
-                {/* SAVINGS */}
+                {/* SAVINGS GOALS */}
 
                 <Route
                     path="/savings-goals"
                     element={
                         token
                             ? <SavingsGoals />
-                            : <Navigate to="/login" replace />
+                            : <Navigate
+                                to="/login"
+                                replace
+                            />
                     }
                 />
 
@@ -166,7 +203,10 @@ function App() {
                     element={
                         token
                             ? <Notifications />
-                            : <Navigate to="/login" replace />
+                            : <Navigate
+                                to="/login"
+                                replace
+                            />
                     }
                 />
 
@@ -178,12 +218,30 @@ function App() {
                     element={
                         token
                             ? <Reports />
-                            : <Navigate to="/login" replace />
+                            : <Navigate
+                                to="/login"
+                                replace
+                            />
                     }
                 />
 
 
-                {/* ADMIN */}
+                {/* PROFILE */}
+
+                <Route
+                    path="/profile"
+                    element={
+                        token
+                            ? <Profile />
+                            : <Navigate
+                                to="/login"
+                                replace
+                            />
+                    }
+                />
+
+
+                {/* ADMIN PANEL */}
 
                 <Route
                     path="/admin"
@@ -195,19 +253,31 @@ function App() {
                 />
 
 
-                {/* UNKNOWN URL */}
+                {/* PREMIUM */}
 
                 <Route
-                    path="*"
-                    element={
-                        <Navigate
-                            to="/"
-                            replace
-                        />
-                    }
+                    path="/premium"
+                    element={<Premium />}
+                />
+
+
+                {/* SYSTEM ANALYTICS */}
+
+                <Route
+                    path="/system-analytics"
+                    element={<SystemAnalytics />}
+                />
+
+
+                {/* USER MANAGEMENT */}
+
+                <Route
+                    path="/user-management"
+                    element={<UserManagement />}
                 />
 
             </Routes>
+
         </>
     );
 }

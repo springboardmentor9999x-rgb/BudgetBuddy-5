@@ -360,7 +360,7 @@ function ExpenseForm({ refresh }) {
                 {/* DESCRIPTION */}
 
                 <textarea
-                    placeholder="Description (optional)"
+                    placeholder="Description"
                     value={description}
                     onChange={(e) =>
                         setDescription(

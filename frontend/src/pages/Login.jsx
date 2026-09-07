@@ -2,12 +2,10 @@ import { useState } from "react";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import api from "../services/api";
-import { useAuth } from "../context/AuthContext";
 
 function Login() {
 
     const navigate = useNavigate();
-    const { loadUser } = useAuth();
 
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
@@ -18,7 +16,7 @@ function Login() {
         e.preventDefault();
 
         if (!username.trim()) {
-            toast.error("Please enter username or email");
+            toast.error("Please enter your username or email");
             return;
         }
 
@@ -30,6 +28,9 @@ function Login() {
         try {
 
             setLoading(true);
+
+            // Clear previous account token FIRST
+            localStorage.removeItem("token");
 
             const formData = new URLSearchParams();
 
@@ -43,8 +44,6 @@ function Login() {
                 password
             );
 
-            console.log("LOGIN USER:", username.trim());
-
             const response = await api.post(
                 "/auth/login",
                 formData,
@@ -56,42 +55,41 @@ function Login() {
                 }
             );
 
-            console.log("LOGIN RESPONSE:", response.data);
-
             const token = response.data.access_token;
 
             if (!token) {
-                toast.error("Login token not received");
-                return;
+                throw new Error("Token was not returned");
             }
 
-            // Remove previous account token
-            localStorage.removeItem("token");
+            // Save NEW account token
+            localStorage.setItem(
+                "token",
+                token
+            );
 
-            // Save new account token
-            localStorage.setItem("token", token);
-
-            // Load the newly logged-in user
-            await loadUser();
+            console.log("NEW LOGIN TOKEN SAVED");
 
             toast.success("Login successful");
 
-            /*
-             * IMPORTANT:
-             * All users first go to the normal Dashboard.
-             * Their role-based features are handled later.
-             */
+            // IMPORTANT:
+            // Every account goes to the SAME dashboard.
+            // Admin panel is available separately from Sidebar.
 
-            navigate("/dashboard", {
-                replace: true
-            });
+            setTimeout(() => {
+
+                window.location.href = "/dashboard";
+
+            }, 500);
 
         } catch (error) {
 
             console.error(
                 "LOGIN ERROR:",
-                error.response?.data || error
+                error
             );
+
+            // Make sure failed login does not keep old account
+            localStorage.removeItem("token");
 
             toast.error(
                 error.response?.data?.detail ||
@@ -124,14 +122,14 @@ function Login() {
                     padding: "35px",
                     borderRadius: "10px",
                     boxShadow:
-                        "0 0 20px rgba(0,0,0,.2)",
+                        "0 0 20px rgba(0,0,0,.15)",
                 }}
             >
 
                 <h1
                     style={{
                         textAlign: "center",
-                        marginBottom: "5px",
+                        marginBottom: "5px"
                     }}
                 >
                     BudgetBuddy
@@ -140,7 +138,7 @@ function Login() {
                 <h2
                     style={{
                         textAlign: "center",
-                        marginTop: "0",
+                        marginTop: "0"
                     }}
                 >
                     Login
@@ -156,7 +154,6 @@ function Login() {
                             setUsername(e.target.value)
                         }
                         disabled={loading}
-                        autoComplete="username"
                         style={{
                             width: "100%",
                             padding: "12px",
@@ -173,7 +170,6 @@ function Login() {
                             setPassword(e.target.value)
                         }
                         disabled={loading}
-                        autoComplete="current-password"
                         style={{
                             width: "100%",
                             padding: "12px",

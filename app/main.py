@@ -14,6 +14,7 @@ from app.reports import router as reports_router
 from app.banks import router as banks_router
 from app.dashboard import router as dashboard_router
 from app.admin import router as admin_router
+from app.analytics import router as analytics_router
 
 app = FastAPI(title="BudgetBuddy API")
 app.add_middleware(
@@ -39,6 +40,7 @@ app.include_router(reports_router)
 app.include_router(banks_router)
 app.include_router(dashboard_router)
 app.include_router(admin_router)
+app.include_router(analytics_router)
 
 @app.get("/")
 def home():
