@@ -7,15 +7,8 @@ import Navbar from "../components/layout/Navbar";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
 
-
-// ==========================================================
-// ACCOUNT CREATED DATE & TIME
-// ==========================================================
-
 const formatDateTime = (date) => {
-    if (!date) {
-        return "Not available";
-    }
+    if (!date) return "Not available";
 
     const parsedDate = new Date(date);
 
@@ -33,27 +26,15 @@ const formatDateTime = (date) => {
     });
 };
 
-
 function UserManagement() {
-
     const navigate = useNavigate();
-
     const { user, loading: authLoading } = useAuth();
 
-    const [loading, setLoading] = useState(true);
-
     const [users, setUsers] = useState([]);
-
-    const [myAccount, setMyAccount] = useState(null);
-
+    const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
 
-    const [selectedUser, setSelectedUser] = useState(null);
-
-    const [showDetails, setShowDetails] = useState(false);
-
     const [showCreateUser, setShowCreateUser] = useState(false);
-
     const [newUser, setNewUser] = useState({
         username: "",
         email: "",
@@ -61,152 +42,53 @@ function UserManagement() {
         plan: "normal",
     });
 
+    useEffect(() => {
+        if (!authLoading && (!user || user.role !== "admin")) {
+            navigate("/dashboard", { replace: true });
+        }
+    }, [authLoading, user, navigate]);
 
-    // =====================================================
-    // LOAD USER MANAGEMENT
-    // =====================================================
-
-    const loadUserManagement = async () => {
-
+    const loadUsers = async () => {
         try {
-
             setLoading(true);
 
-            // -------------------------------------------------
-            // ADMIN
-            // -------------------------------------------------
-
-            if (user?.role === "admin") {
-
-                const response = await api.get(
-                    "/admin/users"
-                );
-
-                setUsers(
-                    response.data
-                );
-
+            const response = await api.get("/admin/users");
+            setUsers(Array.isArray(response.data) ? response.data : []);
+        } catch (error) {
+            if (error.response?.status === 401) {
+                localStorage.removeItem("token");
+                navigate("/login", { replace: true });
                 return;
             }
 
-
-            // -------------------------------------------------
-            // NORMAL / PREMIUM USER
-            // -------------------------------------------------
-
-            const response = await api.get(
-                "/admin/me"
-            );
-
-            setMyAccount(
-                response.data
-            );
-
-        } catch (error) {
-
-            console.error(
-                "User Management error:",
-                error
-            );
-
-            if (
-                error.response?.status === 401
-            ) {
-
-                toast.error(
-                    "Please login again."
-                );
-
-                localStorage.removeItem(
-                    "token"
-                );
-
-                navigate("/login");
-
+            if (error.response?.status === 403) {
+                toast.error("Admin access required");
+                navigate("/dashboard", { replace: true });
                 return;
             }
 
             toast.error(
                 error.response?.data?.detail ||
-                "Unable to load User Management"
+                "Unable to load users"
             );
-
         } finally {
-
             setLoading(false);
         }
     };
 
-
     useEffect(() => {
-
-        if (!authLoading && user) {
-
-            loadUserManagement();
-
+        if (!authLoading && user?.role === "admin") {
+            loadUsers();
         }
-
     }, [authLoading, user]);
 
-
-    // =====================================================
-    // ADMIN - VIEW USER DETAILS
-    // =====================================================
-
-    const handleViewDetails = async (
-        userId
-    ) => {
-
+    const handleChangePlan = async (userId, plan) => {
         try {
+            await api.put(`/admin/users/${userId}/plan`, { plan });
 
-            const response = await api.get(
-                `/admin/users/${userId}`
-            );
-
-            setSelectedUser(
-                response.data
-            );
-
-            setShowDetails(
-                true
-            );
-
+            toast.success("User plan updated successfully");
+            await loadUsers();
         } catch (error) {
-
-            toast.error(
-                error.response?.data?.detail ||
-                "Unable to load user details"
-            );
-        }
-    };
-
-
-    // =====================================================
-    // ADMIN - CHANGE PLAN
-    // =====================================================
-
-    const handleChangePlan = async (
-        userId,
-        plan
-    ) => {
-
-        try {
-
-            await api.put(
-                `/admin/users/${userId}/plan`,
-                {
-                    plan: plan,
-                }
-            );
-
-            toast.success(
-                "User plan updated successfully"
-            );
-
-            loadUserManagement();
-
-        } catch (error) {
-
             toast.error(
                 error.response?.data?.detail ||
                 "Unable to update user plan"
@@ -214,37 +96,24 @@ function UserManagement() {
         }
     };
 
-    // =====================================================
-    // ADMIN - DELETE USER
-    // =====================================================
-
-    const handleDeleteUser = async (
-        userId,
-        username
-    ) => {
-
-        const confirmed = window.confirm(
-            `Are you sure you want to permanently delete "${username}" and all of their financial data?`
-        );
-
-        if (!confirmed) {
+    const handleDeleteUser = async (userId, username, role) => {
+        if (role === "admin") {
+            toast.error("The administrator account cannot be deleted.");
             return;
         }
 
+        const confirmed = window.confirm(
+            `Are you sure you want to permanently delete "${username}"?`
+        );
+
+        if (!confirmed) return;
+
         try {
+            await api.delete(`/admin/users/${userId}`);
 
-            await api.delete(
-                `/admin/users/${userId}`
-            );
-
-            toast.success(
-                "User deleted successfully"
-            );
-
-            loadUserManagement();
-
+            toast.success("User deleted successfully");
+            await loadUsers();
         } catch (error) {
-
             toast.error(
                 error.response?.data?.detail ||
                 "Unable to delete user"
@@ -252,15 +121,7 @@ function UserManagement() {
         }
     };
 
-
-    // =====================================================
-    // ADMIN - CREATE USER
-    // =====================================================
-
-    const handleCreateUser = async (
-        e
-    ) => {
-
+    const handleCreateUser = async (e) => {
         e.preventDefault();
 
         if (
@@ -268,36 +129,19 @@ function UserManagement() {
             !newUser.email.trim() ||
             !newUser.password
         ) {
-
-            toast.error(
-                "Please fill all required fields"
-            );
-
+            toast.error("Please fill all required fields");
             return;
         }
 
         try {
+            await api.post("/admin/users", {
+                username: newUser.username.trim(),
+                email: newUser.email.trim(),
+                password: newUser.password,
+                plan: newUser.plan,
+            });
 
-            await api.post(
-                "/admin/users",
-                {
-                    username:
-                        newUser.username.trim(),
-
-                    email:
-                        newUser.email.trim(),
-
-                    password:
-                        newUser.password,
-
-                    plan:
-                        newUser.plan,
-                }
-            );
-
-            toast.success(
-                "User created successfully"
-            );
+            toast.success("User created successfully");
 
             setNewUser({
                 username: "",
@@ -306,14 +150,9 @@ function UserManagement() {
                 plan: "normal",
             });
 
-            setShowCreateUser(
-                false
-            );
-
-            loadUserManagement();
-
+            setShowCreateUser(false);
+            await loadUsers();
         } catch (error) {
-
             toast.error(
                 error.response?.data?.detail ||
                 "Unable to create user"
@@ -321,74 +160,32 @@ function UserManagement() {
         }
     };
 
-
-    // =====================================================
-    // LOADING
-    // =====================================================
-
-    if (
-        authLoading ||
-        loading
-    ) {
-
+    if (authLoading || loading) {
         return (
-
-            <div
-                style={{
-                    padding: "40px",
-                    textAlign: "center",
-                    fontSize: "20px",
-                }}
-            >
+            <div style={{ padding: "40px", textAlign: "center", fontSize: "20px" }}>
                 Loading User Management...
             </div>
         );
     }
 
+    if (!user || user.role !== "admin") {
+        return null;
+    }
 
-    // =====================================================
-    // FILTER USERS
-    // ADMIN
-    // =====================================================
+    const value = search.toLowerCase().trim();
 
-    const filteredUsers =
-        users.filter((item) => {
+    const filteredUsers = users.filter((item) => {
+        if (!value) return true;
 
-            const value =
-                search
-                    .toLowerCase()
-                    .trim();
-
-            if (!value) {
-                return true;
-            }
-
-            return (
-                item.username
-                    ?.toLowerCase()
-                    .includes(value) ||
-
-                item.email
-                    ?.toLowerCase()
-                    .includes(value) ||
-
-                item.role
-                    ?.toLowerCase()
-                    .includes(value) ||
-
-                item.plan
-                    ?.toLowerCase()
-                    .includes(value)
-            );
-        });
-
-
-    // =====================================================
-    // MAIN PAGE
-    // =====================================================
+        return (
+            item.username?.toLowerCase().includes(value) ||
+            item.email?.toLowerCase().includes(value) ||
+            item.role?.toLowerCase().includes(value) ||
+            item.plan?.toLowerCase().includes(value)
+        );
+    });
 
     return (
-
         <div
             style={{
                 display: "flex",
@@ -396,9 +193,7 @@ function UserManagement() {
                 background: "#f5f7fb",
             }}
         >
-
             <Sidebar />
-
 
             <div
                 style={{
@@ -407,1978 +202,389 @@ function UserManagement() {
                     boxSizing: "border-box",
                 }}
             >
-
                 <Navbar />
-
-
-                {/* =================================================
-                    HEADER
-                ================================================= */}
 
                 <div
                     style={{
                         display: "flex",
-                        justifyContent:
-                            "space-between",
+                        justifyContent: "space-between",
                         alignItems: "center",
-                        marginBottom: "25px",
                         gap: "15px",
+                        marginTop: "25px",
+                        marginBottom: "20px",
                         flexWrap: "wrap",
                     }}
                 >
-
                     <div>
-
-                        <h1
-                            style={{
-                                marginBottom: "5px",
-                            }}
-                        >
+                        <h1 style={{ marginBottom: "5px" }}>
                             👥 User Management
                         </h1>
 
-                        <p
-                            style={{
-                                color: "#64748b",
-                                margin: 0,
-                            }}
-                        >
-                            {user?.role === "admin"
-                                ? "Manage all BudgetBuddy users and their accounts."
-                                : "View your BudgetBuddy account and financial activity."
-                            }
+                        <p style={{ color: "#64748b", margin: 0 }}>
+                            Admin-only account and subscription management.
+                            Private financial information is not displayed.
                         </p>
-
                     </div>
-
-
-                    {user?.role === "admin" && (
-
-                        <button
-                            onClick={() =>
-                                setShowCreateUser(
-                                    true
-                                )
-                            }
-                            style={primaryButton}
-                        >
-                            ➕ Create User
-                        </button>
-
-                    )}
-
-                </div>
-
-
-                {/* =================================================
-                    ADMIN VIEW
-                ================================================= */}
-
-                {user?.role === "admin" ? (
-
-                    <>
-
-                        {/* -----------------------------------------
-                            SEARCH
-                        ----------------------------------------- */}
-
-                        <div
-                            style={{
-                                background: "white",
-                                padding: "18px",
-                                borderRadius: "12px",
-                                marginBottom: "20px",
-                                boxShadow:
-                                    "0 2px 10px rgba(0,0,0,0.06)",
-                            }}
-                        >
-
-                            <input
-                                type="text"
-                                placeholder="🔍 Search username, email, role or plan..."
-                                value={search}
-                                onChange={(e) =>
-                                    setSearch(
-                                        e.target.value
-                                    )
-                                }
-                                style={{
-                                    width: "100%",
-                                    padding: "12px",
-                                    border:
-                                        "1px solid #cbd5e1",
-                                    borderRadius: "8px",
-                                    boxSizing:
-                                        "border-box",
-                                    fontSize: "15px",
-                                }}
-                            />
-
-                        </div>
-
-
-                        {/* -----------------------------------------
-                            USER COUNT
-                        ----------------------------------------- */}
-
-                        <div
-                            style={{
-                                marginBottom: "15px",
-                                color: "#475569",
-                            }}
-                        >
-                            Showing{" "}
-                            <strong>
-                                {filteredUsers.length}
-                            </strong>{" "}
-                            of{" "}
-                            <strong>
-                                {users.length}
-                            </strong>{" "}
-                            users
-                        </div>
-
-
-                        {/* -----------------------------------------
-                            USER TABLE
-                        ----------------------------------------- */}
-
-                        <div
-                            style={{
-                                background: "white",
-                                borderRadius: "12px",
-                                boxShadow:
-                                    "0 2px 10px rgba(0,0,0,0.06)",
-                                overflowX: "auto",
-                            }}
-                        >
-
-                            <table
-                                style={{
-                                    width: "100%",
-                                    borderCollapse:
-                                        "collapse",
-                                    minWidth:
-                                        "1200px",
-                                }}
-                            >
-
-                                <thead>
-
-                                    <tr
-                                        style={{
-                                            background:
-                                                "#eff6ff",
-                                        }}
-                                    >
-
-                                        <th
-                                            style={thStyle}
-                                        >
-                                            ID
-                                        </th>
-
-                                        <th
-                                            style={thStyle}
-                                        >
-                                            Username
-                                        </th>
-
-                                        <th
-                                            style={thStyle}
-                                        >
-                                            Email
-                                        </th>
-
-                                        <th
-                                            style={thStyle}
-                                        >
-                                            Role
-                                        </th>
-
-                                        <th
-                                            style={thStyle}
-                                        >
-                                            Plan
-                                        </th>
-
-                                        <th
-                                            style={thStyle}
-                                        >
-                                            Verified
-                                        </th>
-
-                                        <th
-                                            style={thStyle}
-                                        >
-                                            Account Created
-                                        </th>
-
-                                        <th
-                                            style={thStyle}
-                                        >
-                                            Income
-                                        </th>
-
-                                        <th
-                                            style={thStyle}
-                                        >
-                                            Expense
-                                        </th>
-
-                                        <th
-                                            style={thStyle}
-                                        >
-                                            Accounts
-                                        </th>
-
-                                        <th
-                                            style={thStyle}
-                                        >
-                                            Actions
-                                        </th>
-
-                                    </tr>
-
-                                </thead>
-
-
-                                <tbody>
-
-                                    {filteredUsers.length ===
-                                    0 ? (
-
-                                        <tr>
-
-                                            <td
-                                                colSpan="11"
-                                                style={{
-                                                    padding:
-                                                        "40px",
-                                                    textAlign:
-                                                        "center",
-                                                    color:
-                                                        "#64748b",
-                                                }}
-                                            >
-                                                No users found.
-                                            </td>
-
-                                        </tr>
-
-                                    ) : (
-
-                                        filteredUsers.map(
-                                            (item) => (
-
-                                                <tr
-                                                    key={
-                                                        item.id
-                                                    }
-                                                    style={{
-                                                        borderBottom:
-                                                            "1px solid #e2e8f0",
-                                                    }}
-                                                >
-
-                                                    <td
-                                                        style={
-                                                            tdStyle
-                                                        }
-                                                    >
-                                                        {item.id}
-                                                    </td>
-
-                                                    <td
-                                                        style={
-                                                            tdStyle
-                                                        }
-                                                    >
-                                                        <strong>
-                                                            {
-                                                                item.username
-                                                            }
-                                                        </strong>
-                                                    </td>
-
-                                                    <td
-                                                        style={
-                                                            tdStyle
-                                                        }
-                                                    >
-                                                        {
-                                                            item.email
-                                                        }
-                                                    </td>
-
-
-                                                    {/* ROLE - READ ONLY */}
-
-                                                    <td
-                                                        style={
-                                                            tdStyle
-                                                        }
-                                                    >
-                                                        <span
-                                                            style={{
-                                                                ...badgeStyle,
-                                                                background:
-                                                                    item.role ===
-                                                                    "admin"
-                                                                        ? "#dbeafe"
-                                                                        : "#f1f5f9",
-                                                                color:
-                                                                    item.role ===
-                                                                    "admin"
-                                                                        ? "#1d4ed8"
-                                                                        : "#334155",
-                                                            }}
-                                                        >
-                                                            {item.role ===
-                                                            "admin"
-                                                                ? "Admin"
-                                                                : "User"}
-                                                        </span>
-                                                    </td>
-
-
-                                                    {/* PLAN */}
-
-                                                    <td
-                                                        style={
-                                                            tdStyle
-                                                        }
-                                                    >
-
-                                                        {item.role ===
-                                                        "admin" ? (
-
-                                                            <span
-                                                                style={{
-                                                                    ...badgeStyle,
-                                                                    background:
-                                                                        "#e0e7ff",
-                                                                    color:
-                                                                        "#3730a3",
-                                                                }}
-                                                            >
-                                                                Admin
-                                                            </span>
-
-                                                        ) : (
-
-                                                            <select
-                                                                value={
-                                                                    item.plan
-                                                                }
-                                                                onChange={(
-                                                                    e
-                                                                ) =>
-                                                                    handleChangePlan(
-                                                                        item.id,
-                                                                        e.target
-                                                                            .value
-                                                                    )
-                                                                }
-                                                                style={
-                                                                    selectStyle
-                                                                }
-                                                            >
-
-                                                                <option value="normal">
-                                                                    Normal
-                                                                </option>
-
-                                                                <option value="premium">
-                                                                    Premium
-                                                                </option>
-
-                                                            </select>
-
-                                                        )}
-
-                                                    </td>
-
-
-                                                    {/* VERIFIED */}
-
-                                                    <td
-                                                        style={
-                                                            tdStyle
-                                                        }
-                                                    >
-
-                                                        {item.verified ? (
-
-                                                            <span
-                                                                style={{
-                                                                    ...badgeStyle,
-                                                                    background:
-                                                                        "#dcfce7",
-                                                                    color:
-                                                                        "#166534",
-                                                                }}
-                                                            >
-                                                                ✓ Verified
-                                                            </span>
-
-                                                        ) : (
-
-                                                            <span
-                                                                style={{
-                                                                    ...badgeStyle,
-                                                                    background:
-                                                                        "#fee2e2",
-                                                                    color:
-                                                                        "#991b1b",
-                                                                }}
-                                                            >
-                                                                ✕ Not Verified
-                                                            </span>
-
-                                                        )}
-
-                                                    </td>
-
-
-                                                    {/* ACCOUNT CREATED */}
-
-                                                    <td
-                                                        style={
-                                                            tdStyle
-                                                        }
-                                                    >
-                                                        {formatDateTime(
-                                                            item.created_at
-                                                        )}
-                                                    </td>
-
-
-                                                    {/* INCOME */}
-
-                                                    <td
-                                                        style={
-                                                            tdStyle
-                                                        }
-                                                    >
-                                                        ₹
-                                                        {Number(
-                                                            item.total_income ||
-                                                                0
-                                                        ).toLocaleString(
-                                                            "en-IN"
-                                                        )}
-                                                    </td>
-
-
-                                                    {/* EXPENSE */}
-
-                                                    <td
-                                                        style={
-                                                            tdStyle
-                                                        }
-                                                    >
-                                                        ₹
-                                                        {Number(
-                                                            item.total_expense ||
-                                                                0
-                                                        ).toLocaleString(
-                                                            "en-IN"
-                                                        )}
-                                                    </td>
-
-
-                                                    {/* ACCOUNTS */}
-
-                                                    <td
-                                                        style={
-                                                            tdStyle
-                                                        }
-                                                    >
-                                                        {item.bank_accounts_count ||
-                                                            0}
-                                                    </td>
-
-
-                                                    {/* ACTIONS */}
-
-                                                    <td
-                                                        style={
-                                                            tdStyle
-                                                        }
-                                                    >
-
-                                                        <div
-                                                            style={{
-                                                                display:
-                                                                    "flex",
-                                                                gap:
-                                                                    "6px",
-                                                                flexWrap:
-                                                                    "wrap",
-                                                            }}
-                                                        >
-
-                                                            <button
-                                                                onClick={() =>
-                                                                    handleViewDetails(
-                                                                        item.id
-                                                                    )
-                                                                }
-                                                                style={
-                                                                    smallButton
-                                                                }
-                                                            >
-                                                                👁 View
-                                                            </button>
-
-
-                                                            {item.id !==
-                                                                user.id && (
-
-                                                                <button
-                                                                    onClick={() =>
-                                                                        handleDeleteUser(
-                                                                            item.id,
-                                                                            item.username
-                                                                        )
-                                                                    }
-                                                                    style={
-                                                                        deleteButton
-                                                                    }
-                                                                >
-                                                                    🗑 Delete
-                                                                </button>
-
-                                                            )}
-
-                                                        </div>
-
-                                                    </td>
-
-                                                </tr>
-
-                                            )
-                                        )
-
-                                    )}
-
-                                </tbody>
-
-                            </table>
-
-                        </div>
-
-                    </>
-
-                ) : (
-
-                    /* =================================================
-                       NORMAL / PREMIUM USER VIEW
-                    ================================================= */
-
-                    <PersonalUserView
-                        account={
-                            myAccount
-                        }
-                    />
-
-                )}
-
-            </div>
-
-
-            {/* =====================================================
-                USER DETAILS MODAL
-            ===================================================== */}
-
-            {showDetails &&
-                selectedUser && (
-
-                    <UserDetailsModal
-                        data={
-                            selectedUser
-                        }
-                        onClose={() =>
-                            setShowDetails(
-                                false
-                            )
-                        }
-                    />
-
-                )}
-
-
-            {/* =====================================================
-                CREATE USER MODAL
-            ===================================================== */}
-
-            {showCreateUser && (
-
-                <div
-                    style={overlayStyle}
-                >
-
-                    <div
-                        style={modalStyle}
-                    >
-
-                        <div
-                            style={{
-                                display:
-                                    "flex",
-                                justifyContent:
-                                    "space-between",
-                                alignItems:
-                                    "center",
-                                marginBottom:
-                                    "20px",
-                            }}
-                        >
-
-                            <h2
-                                style={{
-                                    margin: 0,
-                                }}
-                            >
-                                ➕ Create User
-                            </h2>
-
-                            <button
-                                onClick={() =>
-                                    setShowCreateUser(
-                                        false
-                                    )
-                                }
-                                style={
-                                    closeButton
-                                }
-                            >
-                                ✕
-                            </button>
-
-                        </div>
-
-
-                        <form
-                            onSubmit={
-                                handleCreateUser
-                            }
-                        >
-
-                            <label
-                                style={
-                                    labelStyle
-                                }
-                            >
-                                Username
-                            </label>
-
-                            <input
-                                type="text"
-                                value={
-                                    newUser.username
-                                }
-                                onChange={(e) =>
-                                    setNewUser({
-                                        ...newUser,
-                                        username:
-                                            e.target
-                                                .value,
-                                    })
-                                }
-                                style={
-                                    inputStyle
-                                }
-                            />
-
-
-                            <label
-                                style={
-                                    labelStyle
-                                }
-                            >
-                                Email
-                            </label>
-
-                            <input
-                                type="email"
-                                value={
-                                    newUser.email
-                                }
-                                onChange={(e) =>
-                                    setNewUser({
-                                        ...newUser,
-                                        email:
-                                            e.target
-                                                .value,
-                                    })
-                                }
-                                style={
-                                    inputStyle
-                                }
-                            />
-
-
-                            <label
-                                style={
-                                    labelStyle
-                                }
-                            >
-                                Password
-                            </label>
-
-                            <input
-                                type="password"
-                                value={
-                                    newUser.password
-                                }
-                                onChange={(e) =>
-                                    setNewUser({
-                                        ...newUser,
-                                        password:
-                                            e.target
-                                                .value,
-                                    })
-                                }
-                                style={
-                                    inputStyle
-                                }
-                            />
-
-
-                            <label
-                                style={
-                                    labelStyle
-                                }
-                            >
-                                Plan
-                            </label>
-
-                            <select
-                                value={
-                                    newUser.plan
-                                }
-                                onChange={(e) =>
-                                    setNewUser({
-                                        ...newUser,
-                                        plan:
-                                            e.target
-                                                .value,
-                                    })
-                                }
-                                style={
-                                    inputStyle
-                                }
-                            >
-
-                                <option value="normal">
-                                    Normal
-                                </option>
-
-                                <option value="premium">
-                                    Premium
-                                </option>
-
-                            </select>
-
-
-                            <button
-                                type="submit"
-                                style={{
-                                    ...primaryButton,
-                                    width: "100%",
-                                    marginTop:
-                                        "10px",
-                                }}
-                            >
-                                Create User
-                            </button>
-
-                        </form>
-
-                    </div>
-
-                </div>
-
-            )}
-
-        </div>
-    );
-}
-
-
-// ==========================================================
-// PERSONAL USER VIEW
-// ==========================================================
-
-function PersonalUserView({
-    account
-}) {
-
-    if (!account) {
-
-        return (
-
-            <div
-                style={emptyBox}
-            >
-                Unable to load account information.
-            </div>
-        );
-    }
-
-    const user = account.user;
-
-    const financial =
-        account.financial_summary;
-
-    const activity =
-        account.activity;
-
-
-    return (
-
-        <>
-
-            {/* ACCOUNT CARD */}
-
-            <div
-                style={sectionCard}
-            >
-
-                <h2>
-                    👤 My Account
-                </h2>
-
-                <div
-                    style={infoGrid}
-                >
-
-                    <Info
-                        label="Username"
-                        value={
-                            user.username
-                        }
-                    />
-
-                    <Info
-                        label="Email"
-                        value={
-                            user.email
-                        }
-                    />
-
-                    <Info
-                        label="Role"
-                        value={
-                            user.role
-                        }
-                    />
-
-                    <Info
-                        label="Plan"
-                        value={
-                            user.plan
-                        }
-                        highlight={
-                            user.plan ===
-                            "premium"
-                        }
-                    />
-
-                    <Info
-                        label="Verification"
-                        value={
-                            user.verified
-                                ? "Verified"
-                                : "Not Verified"
-                        }
-                    />
-
-                    <Info
-                        label="User ID"
-                        value={
-                            user.id
-                        }
-                    />
-
-                </div>
-
-            </div>
-
-
-            {/* FINANCIAL SUMMARY */}
-
-            <h2
-                style={{
-                    marginTop:
-                        "25px",
-                }}
-            >
-                💰 Financial Summary
-            </h2>
-
-
-            <div
-                style={cardGrid}
-            >
-
-                <SummaryCard
-                    title="Total Income"
-                    value={
-                        financial.total_income
-                    }
-                    icon="💵"
-                />
-
-                <SummaryCard
-                    title="Total Expenses"
-                    value={
-                        financial.total_expense
-                    }
-                    icon="💸"
-                />
-
-                <SummaryCard
-                    title="Net Balance"
-                    value={
-                        financial.net_balance
-                    }
-                    icon="💰"
-                />
-
-                <SummaryCard
-                    title="Total Savings"
-                    value={
-                        financial.total_savings
-                    }
-                    icon="🎯"
-                />
-
-            </div>
-
-
-            {/* ACTIVITY */}
-
-            <h2
-                style={{
-                    marginTop:
-                        "25px",
-                }}
-            >
-                📊 My Activity
-            </h2>
-
-
-            <div
-                style={cardGrid}
-            >
-
-                <CountCard
-                    title="Bank Accounts"
-                    value={
-                        activity.bank_accounts
-                    }
-                    icon="🏦"
-                />
-
-                <CountCard
-                    title="Budgets"
-                    value={
-                        activity.budgets
-                    }
-                    icon="📊"
-                />
-
-                <CountCard
-                    title="Savings Goals"
-                    value={
-                        activity.savings_goals
-                    }
-                    icon="🎯"
-                />
-
-                <CountCard
-                    title="Income Records"
-                    value={
-                        activity.income_records
-                    }
-                    icon="💵"
-                />
-
-                <CountCard
-                    title="Expense Records"
-                    value={
-                        activity.expense_records
-                    }
-                    icon="💸"
-                />
-
-            </div>
-
-        </>
-    );
-}
-
-
-// ==========================================================
-// INFO COMPONENT
-// ==========================================================
-
-function Info({
-    label,
-    value,
-    highlight
-}) {
-
-    return (
-
-        <div
-            style={{
-                padding:
-                    "15px",
-                background:
-                    "#f8fafc",
-                borderRadius:
-                    "8px",
-            }}
-        >
-
-            <div
-                style={{
-                    color:
-                        "#64748b",
-                    fontSize:
-                        "13px",
-                    marginBottom:
-                        "5px",
-                }}
-            >
-                {label}
-            </div>
-
-            <div
-                style={{
-                    fontWeight:
-                        "bold",
-                    color:
-                        highlight
-                            ? "#ca8a04"
-                            : "#1e293b",
-                    textTransform:
-                        "capitalize",
-                }}
-            >
-                {value}
-            </div>
-
-        </div>
-    );
-}
-
-
-// ==========================================================
-// SUMMARY CARD
-// ==========================================================
-
-function SummaryCard({
-    title,
-    value,
-    icon
-}) {
-
-    return (
-
-        <div
-            style={summaryCard}
-        >
-
-            <div
-                style={{
-                    fontSize:
-                        "28px",
-                }}
-            >
-                {icon}
-            </div>
-
-            <div
-                style={{
-                    color:
-                        "#64748b",
-                    marginTop:
-                        "8px",
-                }}
-            >
-                {title}
-            </div>
-
-            <div
-                style={{
-                    fontSize:
-                        "22px",
-                    fontWeight:
-                        "bold",
-                    marginTop:
-                        "5px",
-                }}
-            >
-                ₹
-                {Number(
-                    value || 0
-                ).toLocaleString(
-                    "en-IN"
-                )}
-            </div>
-
-        </div>
-    );
-}
-
-
-// ==========================================================
-// COUNT CARD
-// ==========================================================
-
-function CountCard({
-    title,
-    value,
-    icon
-}) {
-
-    return (
-
-        <div
-            style={summaryCard}
-        >
-
-            <div
-                style={{
-                    fontSize:
-                        "28px",
-                }}
-            >
-                {icon}
-            </div>
-
-            <div
-                style={{
-                    color:
-                        "#64748b",
-                    marginTop:
-                        "8px",
-                }}
-            >
-                {title}
-            </div>
-
-            <div
-                style={{
-                    fontSize:
-                        "24px",
-                    fontWeight:
-                        "bold",
-                    marginTop:
-                        "5px",
-                }}
-            >
-                {value || 0}
-            </div>
-
-        </div>
-    );
-}
-
-
-// ==========================================================
-// USER DETAILS MODAL
-// ==========================================================
-
-function UserDetailsModal({
-    data,
-    onClose
-}) {
-
-    const user =
-        data.user;
-
-    const financial =
-        data.financial_summary;
-
-    return (
-
-        <div
-            style={overlayStyle}
-        >
-
-            <div
-                style={{
-                    ...modalStyle,
-                    maxWidth:
-                        "900px",
-                    maxHeight:
-                        "90vh",
-                    overflowY:
-                        "auto",
-                }}
-            >
-
-                <div
-                    style={{
-                        display:
-                            "flex",
-                        justifyContent:
-                            "space-between",
-                        alignItems:
-                            "center",
-                    }}
-                >
-
-                    <h2>
-                        👤 User Details
-                    </h2>
 
                     <button
-                        onClick={
-                            onClose
-                        }
-                        style={
-                            closeButton
-                        }
+                        onClick={() => setShowCreateUser(true)}
+                        style={primaryButton}
                     >
-                        ✕
+                        ➕ Create User
                     </button>
-
                 </div>
-
-
-                {/* USER INFORMATION */}
 
                 <div
-                    style={
-                        infoGrid
-                    }
-                >
-
-                    <Info
-                        label="Username"
-                        value={
-                            user.username
-                        }
-                    />
-
-                    <Info
-                        label="Email"
-                        value={
-                            user.email
-                        }
-                    />
-
-                    <Info
-                        label="Role"
-                        value={
-                            user.role
-                        }
-                    />
-
-                    <Info
-                        label="Plan"
-                        value={
-                            user.plan
-                        }
-                        highlight={
-                            user.plan ===
-                            "premium"
-                        }
-                    />
-
-                    <Info
-                        label="Verified"
-                        value={
-                            user.verified
-                                ? "Yes"
-                                : "No"
-                        }
-                    />
-
-                    <Info
-                        label="User ID"
-                        value={
-                            user.id
-                        }
-                    />
-
-                    <Info
-                        label="Account Created"
-                        value={
-                            formatDateTime(
-                                user.created_at
-                            )
-                        }
-                    />
-
-                </div>
-
-
-                {/* FINANCIAL INFORMATION */}
-
-                <h3
                     style={{
-                        marginTop:
-                            "25px",
+                        background: "white",
+                        padding: "15px",
+                        borderRadius: "10px",
+                        marginBottom: "20px",
+                        boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
                     }}
                 >
-                    💰 Financial Summary
-                </h3>
-
+                    <input
+                        type="text"
+                        placeholder="Search username, email, role or plan..."
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        style={searchInput}
+                    />
+                </div>
 
                 <div
-                    style={
-                        cardGrid
-                    }
+                    style={{
+                        background: "white",
+                        borderRadius: "12px",
+                        padding: "20px",
+                        boxShadow: "0 2px 10px rgba(0,0,0,0.08)",
+                        overflowX: "auto",
+                    }}
                 >
+                    <div
+                        style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            marginBottom: "15px",
+                        }}
+                    >
+                        <h2 style={{ margin: 0 }}>Registered Users</h2>
+                        <span style={{ color: "#64748b" }}>
+                            {filteredUsers.length} of {users.length} users
+                        </span>
+                    </div>
 
-                    <SummaryCard
-                        title="Income"
-                        value={
-                            financial.total_income
-                        }
-                        icon="💵"
-                    />
+                    <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                        <thead>
+                            <tr style={{ textAlign: "left", background: "#f8fafc" }}>
+                                {[
+                                    "ID",
+                                    "Username",
+                                    "Email",
+                                    "Role",
+                                    "Plan",
+                                    "Verified",
+                                    "Account Created",
+                                    "Actions",
+                                ].map((heading) => (
+                                    <th key={heading} style={tableHeader}>
+                                        {heading}
+                                    </th>
+                                ))}
+                            </tr>
+                        </thead>
 
-                    <SummaryCard
-                        title="Expenses"
-                        value={
-                            financial.total_expense
-                        }
-                        icon="💸"
-                    />
+                        <tbody>
+                            {filteredUsers.map((item) => (
+                                <tr key={item.id}>
+                                    <td style={tableCell}>{item.id}</td>
 
-                    <SummaryCard
-                        title="Saved"
-                        value={
-                            financial.total_saved
-                        }
-                        icon="🎯"
-                    />
+                                    <td style={{ ...tableCell, fontWeight: "600" }}>
+                                        {item.username}
+                                    </td>
 
-                    <SummaryCard
-                        title="Balance"
-                        value={
-                            financial.net_balance
-                        }
-                        icon="💰"
-                    />
+                                    <td style={tableCell}>{item.email}</td>
 
+                                    <td style={tableCell}>
+                                        <span
+                                            style={{
+                                                ...badge,
+                                                background:
+                                                    item.role === "admin"
+                                                        ? "#ede9fe"
+                                                        : "#e0f2fe",
+                                                color:
+                                                    item.role === "admin"
+                                                        ? "#7c3aed"
+                                                        : "#0369a1",
+                                            }}
+                                        >
+                                            {item.role === "admin" ? "Admin" : "User"}
+                                        </span>
+                                    </td>
+
+                                    <td style={tableCell}>
+                                        {item.role === "admin" ? (
+                                            <span style={{ ...badge, background: "#ede9fe", color: "#7c3aed" }}>
+                                                Admin
+                                            </span>
+                                        ) : (
+                                            <select
+                                                value={item.plan || "normal"}
+                                                onChange={(e) =>
+                                                    handleChangePlan(
+                                                        item.id,
+                                                        e.target.value
+                                                    )
+                                                }
+                                                style={selectStyle}
+                                            >
+                                                <option value="normal">Normal</option>
+                                                <option value="premium">Premium</option>
+                                            </select>
+                                        )}
+                                    </td>
+
+                                    <td style={tableCell}>
+                                        {item.verified ? (
+                                            <span style={{ color: "#16a34a", fontWeight: "600" }}>
+                                                ✓ Verified
+                                            </span>
+                                        ) : (
+                                            <span style={{ color: "#dc2626", fontWeight: "600" }}>
+                                                ✕ Unverified
+                                            </span>
+                                        )}
+                                    </td>
+
+                                    <td style={tableCell}>
+                                        {formatDateTime(item.created_at)}
+                                    </td>
+
+                                    <td style={tableCell}>
+                                        {item.role === "admin" ? (
+                                            <span
+                                                style={{
+                                                    color: "#64748b",
+                                                    fontWeight: "600",
+                                                }}
+                                            >
+                                                Protected
+                                            </span>
+                                        ) : (
+                                            <button
+                                                onClick={() =>
+                                                    handleDeleteUser(
+                                                        item.id,
+                                                        item.username,
+                                                        item.role
+                                                    )
+                                                }
+                                                style={deleteButton}
+                                            >
+                                                🗑 Delete
+                                            </button>
+                                        )}
+                                    </td>
+                                </tr>
+                            ))}
+
+                            {filteredUsers.length === 0 && (
+                                <tr>
+                                    <td
+                                        colSpan="8"
+                                        style={{
+                                            padding: "30px",
+                                            textAlign: "center",
+                                            color: "#64748b",
+                                        }}
+                                    >
+                                        No users found.
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
                 </div>
 
+                {showCreateUser && (
+                    <div style={modalOverlay}>
+                        <div style={modal}>
+                            <h2>Create User</h2>
 
-                {/* BANK ACCOUNTS */}
+                            <form onSubmit={handleCreateUser}>
+                                <input
+                                    placeholder="Username"
+                                    value={newUser.username}
+                                    onChange={(e) =>
+                                        setNewUser({
+                                            ...newUser,
+                                            username: e.target.value,
+                                        })
+                                    }
+                                    style={modalInput}
+                                />
 
-                <h3
-                    style={{
-                        marginTop:
-                            "25px",
-                    }}
-                >
-                    🏦 Bank Accounts
-                </h3>
+                                <input
+                                    type="email"
+                                    placeholder="Email"
+                                    value={newUser.email}
+                                    onChange={(e) =>
+                                        setNewUser({
+                                            ...newUser,
+                                            email: e.target.value,
+                                        })
+                                    }
+                                    style={modalInput}
+                                />
 
-                {data.bank_accounts?.length >
-                0 ? (
+                                <input
+                                    type="password"
+                                    placeholder="Password"
+                                    value={newUser.password}
+                                    onChange={(e) =>
+                                        setNewUser({
+                                            ...newUser,
+                                            password: e.target.value,
+                                        })
+                                    }
+                                    style={modalInput}
+                                />
 
-                    <div
-                        style={{
-                            overflowX:
-                                "auto",
-                        }}
-                    >
+                                <select
+                                    value={newUser.plan}
+                                    onChange={(e) =>
+                                        setNewUser({
+                                            ...newUser,
+                                            plan: e.target.value,
+                                        })
+                                    }
+                                    style={modalInput}
+                                >
+                                    <option value="normal">Normal</option>
+                                    <option value="premium">Premium</option>
+                                </select>
 
-                        <table
-                            style={{
-                                width:
-                                    "100%",
-                                borderCollapse:
-                                    "collapse",
-                            }}
-                        >
-
-                            <thead>
-
-                                <tr>
-
-                                    <th
-                                        style={
-                                            thStyle
-                                        }
+                                <div
+                                    style={{
+                                        display: "flex",
+                                        gap: "10px",
+                                        justifyContent: "flex-end",
+                                        marginTop: "15px",
+                                    }}
+                                >
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowCreateUser(false)}
+                                        style={cancelButton}
                                     >
-                                        Bank
-                                    </th>
+                                        Cancel
+                                    </button>
 
-                                    <th
-                                        style={
-                                            thStyle
-                                        }
-                                    >
-                                        Account Type
-                                    </th>
-
-                                    <th
-                                        style={
-                                            thStyle
-                                        }
-                                    >
-                                        Balance
-                                    </th>
-
-                                    <th
-                                        style={
-                                            thStyle
-                                        }
-                                    >
-                                        Primary
-                                    </th>
-
-                                </tr>
-
-                            </thead>
-
-                            <tbody>
-
-                                {data.bank_accounts.map(
-                                    (
-                                        bank
-                                    ) => (
-
-                                        <tr
-                                            key={
-                                                bank.id
-                                            }
-                                        >
-
-                                            <td
-                                                style={
-                                                    tdStyle
-                                                }
-                                            >
-                                                {
-                                                    bank.bank_name
-                                                }
-                                            </td>
-
-                                            <td
-                                                style={
-                                                    tdStyle
-                                                }
-                                            >
-                                                {
-                                                    bank.account_type
-                                                }
-                                            </td>
-
-                                            <td
-                                                style={
-                                                    tdStyle
-                                                }
-                                            >
-                                                ₹
-                                                {Number(
-                                                    bank.current_balance ||
-                                                        0
-                                                ).toLocaleString(
-                                                    "en-IN"
-                                                )}
-                                            </td>
-
-                                            <td
-                                                style={
-                                                    tdStyle
-                                                }
-                                            >
-                                                {bank.is_primary
-                                                    ? "Yes"
-                                                    : "No"}
-                                            </td>
-
-                                        </tr>
-
-                                    )
-                                )}
-
-                            </tbody>
-
-                        </table>
-
+                                    <button type="submit" style={primaryButton}>
+                                        Create User
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
-
-                ) : (
-
-                    <p
-                        style={{
-                            color:
-                                "#64748b",
-                        }}
-                    >
-                        No bank accounts.
-                    </p>
-
                 )}
-
-
-                {/* BUDGETS */}
-
-                <h3
-                    style={{
-                        marginTop:
-                            "25px",
-                    }}
-                >
-                    📊 Budgets
-                </h3>
-
-                {data.budgets?.length >
-                0 ? (
-
-                    <div
-                        style={{
-                            overflowX:
-                                "auto",
-                        }}
-                    >
-
-                        <table
-                            style={{
-                                width:
-                                    "100%",
-                                borderCollapse:
-                                    "collapse",
-                            }}
-                        >
-
-                            <thead>
-
-                                <tr>
-
-                                    <th
-                                        style={
-                                            thStyle
-                                        }
-                                    >
-                                        Category
-                                    </th>
-
-                                    <th
-                                        style={
-                                            thStyle
-                                        }
-                                    >
-                                        Monthly Limit
-                                    </th>
-
-                                    <th
-                                        style={
-                                            thStyle
-                                        }
-                                    >
-                                        Month
-                                    </th>
-
-                                    <th
-                                        style={
-                                            thStyle
-                                        }
-                                    >
-                                        Year
-                                    </th>
-
-                                </tr>
-
-                            </thead>
-
-                            <tbody>
-
-                                {data.budgets.map(
-                                    (
-                                        budget
-                                    ) => (
-
-                                        <tr
-                                            key={
-                                                budget.id
-                                            }
-                                        >
-
-                                            <td
-                                                style={
-                                                    tdStyle
-                                                }
-                                            >
-                                                {
-                                                    budget.category
-                                                }
-                                            </td>
-
-                                            <td
-                                                style={
-                                                    tdStyle
-                                                }
-                                            >
-                                                ₹
-                                                {Number(
-                                                    budget.monthly_limit ||
-                                                        0
-                                                ).toLocaleString(
-                                                    "en-IN"
-                                                )}
-                                            </td>
-
-                                            <td
-                                                style={
-                                                    tdStyle
-                                                }
-                                            >
-                                                {
-                                                    budget.month
-                                                }
-                                            </td>
-
-                                            <td
-                                                style={
-                                                    tdStyle
-                                                }
-                                            >
-                                                {
-                                                    budget.year
-                                                }
-                                            </td>
-
-                                        </tr>
-
-                                    )
-                                )}
-
-                            </tbody>
-
-                        </table>
-
-                    </div>
-
-                ) : (
-
-                    <p
-                        style={{
-                            color:
-                                "#64748b",
-                        }}
-                    >
-                        No budgets.
-                    </p>
-
-                )}
-
-
-                {/* SAVINGS GOALS */}
-
-                <h3
-                    style={{
-                        marginTop:
-                            "25px",
-                    }}
-                >
-                    🎯 Savings Goals
-                </h3>
-
-                {data.savings_goals?.length >
-                0 ? (
-
-                    <div
-                        style={{
-                            overflowX:
-                                "auto",
-                        }}
-                    >
-
-                        <table
-                            style={{
-                                width:
-                                    "100%",
-                                borderCollapse:
-                                    "collapse",
-                            }}
-                        >
-
-                            <thead>
-
-                                <tr>
-
-                                    <th
-                                        style={
-                                            thStyle
-                                        }
-                                    >
-                                        Goal
-                                    </th>
-
-                                    <th
-                                        style={
-                                            thStyle
-                                        }
-                                    >
-                                        Target
-                                    </th>
-
-                                    <th
-                                        style={
-                                            thStyle
-                                        }
-                                    >
-                                        Current
-                                    </th>
-
-                                </tr>
-
-                            </thead>
-
-                            <tbody>
-
-                                {data.savings_goals.map(
-                                    (
-                                        goal
-                                    ) => (
-
-                                        <tr
-                                            key={
-                                                goal.id
-                                            }
-                                        >
-
-                                            <td
-                                                style={
-                                                    tdStyle
-                                                }
-                                            >
-                                                {
-                                                    goal.goal_name
-                                                }
-                                            </td>
-
-                                            <td
-                                                style={
-                                                    tdStyle
-                                                }
-                                            >
-                                                ₹
-                                                {Number(
-                                                    goal.target_amount ||
-                                                        0
-                                                ).toLocaleString(
-                                                    "en-IN"
-                                                )}
-                                            </td>
-
-                                            <td
-                                                style={
-                                                    tdStyle
-                                                }
-                                            >
-                                                ₹
-                                                {Number(
-                                                    goal.current_amount ||
-                                                        0
-                                                ).toLocaleString(
-                                                    "en-IN"
-                                                )}
-                                            </td>
-
-                                        </tr>
-
-                                    )
-                                )}
-
-                            </tbody>
-
-                        </table>
-
-                    </div>
-
-                ) : (
-
-                    <p
-                        style={{
-                            color:
-                                "#64748b",
-                        }}
-                    >
-                        No savings goals.
-                    </p>
-
-                )}
-
             </div>
-
         </div>
     );
 }
 
-
-// ==========================================================
-// STYLES
-// ==========================================================
-
-const thStyle = {
-    padding: "12px",
-    textAlign: "left",
-    borderBottom:
-        "1px solid #cbd5e1",
-    fontSize: "14px",
-    color: "#334155",
+const primaryButton = {
+    padding: "10px 18px",
+    border: "none",
+    borderRadius: "7px",
+    background: "#2563eb",
+    color: "white",
+    cursor: "pointer",
+    fontWeight: "600",
 };
 
-const tdStyle = {
+const deleteButton = {
+    padding: "8px 12px",
+    border: "none",
+    borderRadius: "6px",
+    background: "#fee2e2",
+    color: "#b91c1c",
+    cursor: "pointer",
+    fontWeight: "600",
+};
+
+const cancelButton = {
+    padding: "10px 18px",
+    border: "1px solid #cbd5e1",
+    borderRadius: "7px",
+    background: "white",
+    cursor: "pointer",
+};
+
+const searchInput = {
+    width: "100%",
+    boxSizing: "border-box",
     padding: "12px",
-    borderBottom:
-        "1px solid #e2e8f0",
+    border: "1px solid #cbd5e1",
+    borderRadius: "7px",
     fontSize: "14px",
 };
 
 const selectStyle = {
-    padding: "7px",
-    border:
-        "1px solid #cbd5e1",
+    padding: "7px 10px",
+    border: "1px solid #cbd5e1",
     borderRadius: "6px",
     background: "white",
-    cursor: "pointer",
 };
 
-const badgeStyle = {
+const tableHeader = {
+    padding: "12px 10px",
+    borderBottom: "2px solid #e2e8f0",
+    fontSize: "13px",
+};
+
+const tableCell = {
+    padding: "13px 10px",
+    borderBottom: "1px solid #e2e8f0",
+    fontSize: "14px",
+    verticalAlign: "middle",
+};
+
+const badge = {
     display: "inline-block",
     padding: "5px 9px",
-    borderRadius: "20px",
-    background: "#dbeafe",
-    color: "#1d4ed8",
+    borderRadius: "999px",
     fontSize: "12px",
-    fontWeight: "bold",
-    textTransform: "capitalize",
+    fontWeight: "600",
 };
 
-const primaryButton = {
-    padding: "11px 18px",
-    border: "none",
-    borderRadius: "8px",
-    background: "#2563eb",
-    color: "white",
-    fontWeight: "bold",
-    cursor: "pointer",
-};
-
-const smallButton = {
-    padding: "7px 10px",
-    border: "none",
-    borderRadius: "6px",
-    background: "#2563eb",
-    color: "white",
-    cursor: "pointer",
-};
-
-const deleteButton = {
-    padding: "7px 10px",
-    border: "none",
-    borderRadius: "6px",
-    background: "#dc2626",
-    color: "white",
-    cursor: "pointer",
-};
-
-const inputStyle = {
-    width: "100%",
-    padding: "11px",
-    marginBottom: "15px",
-    border:
-        "1px solid #cbd5e1",
-    borderRadius: "7px",
-    boxSizing: "border-box",
-    fontSize: "15px",
-};
-
-const labelStyle = {
-    display: "block",
-    marginBottom: "6px",
-    fontWeight: "bold",
-    color: "#334155",
-};
-
-const overlayStyle = {
+const modalOverlay = {
     position: "fixed",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    background:
-        "rgba(15,23,42,0.55)",
+    inset: 0,
+    background: "rgba(0,0,0,0.45)",
     display: "flex",
-    justifyContent: "center",
     alignItems: "center",
-    padding: "20px",
+    justifyContent: "center",
     zIndex: 1000,
 };
 
-const modalStyle = {
+const modal = {
+    width: "420px",
+    maxWidth: "90%",
     background: "white",
+    borderRadius: "12px",
+    padding: "25px",
+    boxShadow: "0 10px 30px rgba(0,0,0,0.2)",
+};
+
+const modalInput = {
     width: "100%",
-    maxWidth: "600px",
-    borderRadius: "12px",
-    padding: "25px",
     boxSizing: "border-box",
+    padding: "11px",
+    marginTop: "10px",
+    border: "1px solid #cbd5e1",
+    borderRadius: "7px",
 };
-
-const closeButton = {
-    border: "none",
-    background: "#f1f5f9",
-    borderRadius: "6px",
-    padding: "8px 10px",
-    cursor: "pointer",
-    fontSize: "16px",
-};
-
-const sectionCard = {
-    background: "white",
-    padding: "25px",
-    borderRadius: "12px",
-    boxShadow:
-        "0 2px 10px rgba(0,0,0,0.06)",
-};
-
-const infoGrid = {
-    display: "grid",
-    gridTemplateColumns:
-        "repeat(auto-fit, minmax(200px, 1fr))",
-    gap: "15px",
-};
-
-const cardGrid = {
-    display: "grid",
-    gridTemplateColumns:
-        "repeat(auto-fit, minmax(190px, 1fr))",
-    gap: "18px",
-    marginBottom: "20px",
-};
-
-const summaryCard = {
-    background: "white",
-    padding: "20px",
-    borderRadius: "12px",
-    boxShadow:
-        "0 2px 10px rgba(0,0,0,0.06)",
-};
-
-const emptyBox = {
-    background: "white",
-    padding: "40px",
-    borderRadius: "12px",
-    textAlign: "center",
-    color: "#64748b",
-};
-
 
 export default UserManagement;

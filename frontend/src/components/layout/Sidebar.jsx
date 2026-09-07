@@ -11,7 +11,6 @@ function Sidebar() {
         return null;
     }
 
-
     // ==========================================
     // LOGOUT
     // ==========================================
@@ -26,7 +25,6 @@ function Sidebar() {
         }, 500);
     };
 
-
     // ==========================================
     // CREATE NEW ACCOUNT
     // ==========================================
@@ -35,7 +33,6 @@ function Sidebar() {
         navigate("/register");
     };
 
-
     // ==========================================
     // PREMIUM PAGE
     // ==========================================
@@ -43,18 +40,6 @@ function Sidebar() {
     const handlePremiumPage = () => {
         navigate("/premium");
     };
-
-
-    // ==========================================
-    // SYSTEM ANALYTICS ACCESS
-    //
-    // Premium Users + Admin
-    // ==========================================
-
-    const canViewAnalytics =
-        user?.plan === "premium" ||
-        user?.role === "admin";
-
 
     return (
         <div
@@ -67,7 +52,6 @@ function Sidebar() {
                 boxSizing: "border-box",
             }}
         >
-
             {/* ==========================================
                 LOGO
             ========================================== */}
@@ -80,7 +64,6 @@ function Sidebar() {
                 💰 BudgetBuddy
             </h2>
 
-
             <ul
                 style={{
                     listStyle: "none",
@@ -89,27 +72,6 @@ function Sidebar() {
                     fontSize: "18px",
                 }}
             >
-                {/* ==========================================
-                    PREMIUM USER BADGE
-                ========================================== */}
-
-                {user?.plan === "premium" && user?.role !== "admin" && (
-                    <div
-                        style={{
-                            background: "rgba(250, 204, 21, 0.15)",
-                            border: "1px solid #facc15",
-                            color: "#facc15",
-                            padding: "10px 12px",
-                            borderRadius: "8px",
-                            marginBottom: "25px",
-                            textAlign: "center",
-                            fontWeight: "bold",
-                            fontSize: "15px",
-                        }}
-                    >
-                        ⭐ Premium User
-                    </div>
-                )}
 
                 {/* ==========================================
                     DASHBOARD
@@ -127,7 +89,6 @@ function Sidebar() {
                     </Link>
                 </li>
 
-
                 {/* ==========================================
                     INCOME
                 ========================================== */}
@@ -143,7 +104,6 @@ function Sidebar() {
                         💵 Income
                     </Link>
                 </li>
-
 
                 {/* ==========================================
                     EXPENSES
@@ -161,7 +121,6 @@ function Sidebar() {
                     </Link>
                 </li>
 
-
                 {/* ==========================================
                     BANK ACCOUNTS
                 ========================================== */}
@@ -177,7 +136,6 @@ function Sidebar() {
                         🏦 Bank Accounts
                     </Link>
                 </li>
-
 
                 {/* ==========================================
                     BUDGET
@@ -195,7 +153,6 @@ function Sidebar() {
                     </Link>
                 </li>
 
-
                 {/* ==========================================
                     SAVINGS GOALS
                 ========================================== */}
@@ -211,7 +168,6 @@ function Sidebar() {
                         🎯 Savings Goals
                     </Link>
                 </li>
-
 
                 {/* ==========================================
                     REPORTS
@@ -229,7 +185,6 @@ function Sidebar() {
                     </Link>
                 </li>
 
-
                 {/* ==========================================
                     NOTIFICATIONS
                 ========================================== */}
@@ -245,12 +200,11 @@ function Sidebar() {
                         🔔 Notifications
                     </Link>
                 </li>
-                
 
-                {/* =====================================================
-                    ADMIN DASHBOARD
+                {/* ==========================================
+                    USER MANAGEMENT
                     ADMIN ONLY
-                ===================================================== */}
+                ========================================== */}
 
                 {user?.role === "admin" && (
                     <li
@@ -259,6 +213,50 @@ function Sidebar() {
                             paddingTop: "20px",
                             borderTop:
                                 "1px solid rgba(255,255,255,0.3)",
+                            marginBottom: "15px",
+                        }}
+                    >
+                        <Link
+                            to="/user-management"
+                            style={{
+                                color: "white",
+                                textDecoration: "none",
+                                fontWeight: "bold",
+                            }}
+                        >
+                            👥 User Management
+                        </Link>
+                    </li>
+                )}
+
+                {/* ==========================================
+                    SYSTEM ANALYTICS
+                    ADMIN ONLY
+                ========================================== */}
+
+                {user?.role === "admin" && (
+                    <li
+                        style={{
+                            marginBottom: "15px",
+                        }}
+                    >
+                        <Link
+                            to="/system-analytics"
+                            style={{
+                                color: "#facc15",
+                                textDecoration: "none",
+                                fontWeight: "bold",
+                            }}
+                        >
+                            📊 System Analytics
+                        </Link>
+                    </li>
+                )}
+
+                {/* ADMIN DASHBOARD - ADMIN ONLY */}
+                {user?.role === "admin" && (
+                    <li
+                        style={{
                             marginBottom: "15px",
                         }}
                     >
@@ -275,64 +273,15 @@ function Sidebar() {
                     </li>
                 )}
 
-
-                {/* =====================================================
-                    SYSTEM ANALYTICS
-                    PREMIUM USERS + ADMIN
-                ===================================================== */}
-
-                {canViewAnalytics && (
-                    <li
-                        style={{
-                            
-                            marginBottom: "15px",
-                        }}
-                    >
-                        <Link
-                            to="/system-analytics"
-                            style={{
-                                color: "white",
-                                textDecoration: "none",
-                                fontWeight: "bold",
-                            }}
-                        >
-                            📊 System Analytics
-                        </Link>
-                    </li>
-                )}
-
-
-                {/* =====================================================
-                    USER MANAGEMENT
-                    ALL LOGGED-IN USERS
-                ===================================================== */}
-
-                <li
-                    style={{
-                        marginBottom: "15px",
-                    }}
-                >
-                    <Link
-                        to="/user-management"
-                        style={{
-                            color: "white",
-                            textDecoration: "none",
-                        }}
-                    >
-                        👥 User Management
-                    </Link>
-                </li>
-
-
-                
-
                 {/* ==========================================
                     PREMIUM SUBSCRIPTION
 
                     ONLY NORMAL USERS WHO ARE NOT PREMIUM
                     ARE SHOWN THIS BUTTON.
 
-                    This only opens /premium.
+                    IMPORTANT:
+                    This DOES NOT upgrade the account.
+                    It ONLY opens /premium.
                 ========================================== */}
 
                 {user?.role === "user" &&
@@ -365,7 +314,6 @@ function Sidebar() {
                         </li>
                     )}
 
-
                 {/* ==========================================
                     ACCOUNT SECTION
                 ========================================== */}
@@ -389,7 +337,6 @@ function Sidebar() {
                     </Link>
                 </li>
 
-
                 {/* ==========================================
                     CREATE NEW ACCOUNT
                 ========================================== */}
@@ -404,7 +351,6 @@ function Sidebar() {
                     ➕ Create New Account
                 </li>
 
-
                 {/* ==========================================
                     LOGOUT
                 ========================================== */}
@@ -418,9 +364,7 @@ function Sidebar() {
                 >
                     🚪 Logout
                 </li>
-
             </ul>
-
 
             {/* ==========================================
                 LOGGED-IN USER
@@ -435,11 +379,9 @@ function Sidebar() {
                     fontSize: "14px",
                 }}
             >
-
                 <div>
                     👤 {user?.username}
                 </div>
-
 
                 <div
                     style={{
@@ -450,7 +392,6 @@ function Sidebar() {
                 >
                     Role: {user?.role}
                 </div>
-
 
                 <div
                     style={{
@@ -464,9 +405,7 @@ function Sidebar() {
                 >
                     Plan: {user?.plan}
                 </div>
-
             </div>
-
         </div>
     );
 }
