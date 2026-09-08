@@ -23,12 +23,14 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
     expires_at = datetime.utcnow() + timedelta(minutes=15)
     hashed_pwd = get_password_hash(user_in.password)
 
+    smtp_enabled = bool(os.getenv("SMTP_HOST") and os.getenv("SMTP_USER"))
+
     new_user = User(
         email=user_in.email,
         full_name=user_in.full_name,
         hashed_password=hashed_pwd,
         role=user_in.role if user_in.role in [r.value for r in UserRole] else UserRole.STUDENT.value,
-        is_email_verified=False,
+        is_email_verified=True if not smtp_enabled else False,
         verification_code=otp_code,
         verification_code_expires_at=expires_at
     )
@@ -53,10 +55,13 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
         notification_type="system"
     )
 
-    # Send Gmail / Email verification OTP
-    send_verification_email(new_user.email, otp_code)
+    # Send Gmail / Email verification OTP safely
+    try:
+        send_verification_email(new_user.email, otp_code)
+    except Exception:
+        pass
 
-    log_system_action(db=db, user_id=new_user.id, action="User Registered (Pending Verification)", details=f"Role: {new_user.role}")
+    log_system_action(db=db, user_id=new_user.id, action="User Registered", details=f"Role: {new_user.role}")
     db.commit()
     user_to_return = db.query(User).filter(User.id == new_user.id).first()
     return user_to_return
