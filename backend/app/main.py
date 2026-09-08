@@ -22,7 +22,7 @@ app = FastAPI(
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all for seamless local development
+    allow_origin_regex=r"https://.*|http://.*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
