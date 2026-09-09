@@ -23,7 +23,11 @@ const Register = () => {
       await register(email, fullName, password, role);
       navigate('/verify-email', { state: { email } });
     } catch (err) {
-      setError(err.response?.data?.detail || 'Registration failed');
+      if (!err.response) {
+        setError('Network Error: Unable to reach backend server. Please verify VITE_API_URL in Vercel settings.');
+      } else {
+        setError(err.response?.data?.detail || 'Registration failed');
+      }
     } finally {
       setLoading(false);
     }

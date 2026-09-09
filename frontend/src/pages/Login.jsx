@@ -36,7 +36,11 @@ const Login = () => {
       await login(email, password);
       navigate('/dashboard');
     } catch (err) {
-      setError(err.response?.data?.detail || 'Invalid email or password');
+      if (!err.response) {
+        setError('Network Error: Unable to reach backend server. Please verify VITE_API_URL in Vercel settings.');
+      } else {
+        setError(err.response?.data?.detail || 'Invalid email or password');
+      }
     } finally {
       setLoading(false);
     }
