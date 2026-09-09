@@ -47,6 +47,10 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('budgetbuddy_user', JSON.stringify(res.data));
     } catch (err) {
       console.error('Failed to fetch user', err);
+      if (token && token.startsWith('demo_access_token')) {
+        setLoading(false);
+        return;
+      }
       logout();
     } finally {
       setLoading(false);
@@ -142,6 +146,21 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const demoLogin = (role = 'student') => {
+    const demoUserMap = {
+      student: { id: 2, email: 'student@budgetbuddy.com', full_name: 'bharadwaj (Student)', role: 'student', is_email_verified: true, is_active: true },
+      premium: { id: 3, email: 'premium@budgetbuddy.com', full_name: 'yashwanth (Premium)', role: 'premium', is_email_verified: true, is_active: true },
+      admin: { id: 1, email: 'admin@budgetbuddy.com', full_name: 'System Administrator', role: 'admin', is_email_verified: true, is_active: true }
+    };
+    const demoUser = demoUserMap[role] || demoUserMap.student;
+    const demoToken = `demo_access_token_${role}_${Date.now()}`;
+    saveAuthData(demoToken, demoUser);
+    setNotifications([
+      { id: 101, title: "Welcome to BudgetBuddy!", message: "You are currently previewing BudgetBuddy interactive platform.", type: "system", is_read: false }
+    ]);
+    return demoUser;
+  };
+
   return (
     <AuthContext.Provider value={{
       user,
@@ -152,6 +171,7 @@ export const AuthProvider = ({ children }) => {
       verifyEmail,
       resendVerification,
       oauthLogin,
+      demoLogin,
       logout,
       notifications,
       fetchNotifications,

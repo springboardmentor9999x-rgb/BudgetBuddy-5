@@ -15,7 +15,7 @@ const Login = () => {
   const [customMode, setCustomMode] = useState(false);
   const [customEmail, setCustomEmail] = useState('');
 
-  const { login, oauthLogin } = useAuth();
+  const { login, oauthLogin, demoLogin } = useAuth();
   const navigate = useNavigate();
 
   // Known active accounts on device / system
@@ -162,6 +162,21 @@ const Login = () => {
             {loading ? 'Authenticating...' : 'Sign In'}
             <ArrowRight className="w-4 h-4" />
           </button>
+
+          {/* Instant Presentation Demo Mode Button */}
+          <div className="mt-3">
+            <button
+              type="button"
+              onClick={() => {
+                demoLogin('student');
+                navigate('/dashboard');
+              }}
+              className="w-full py-2.5 rounded-xl bg-[#070D1F] hover:bg-slate-900 border border-cyan-500/40 text-cyan-300 font-bold text-xs flex items-center justify-center gap-2 transition shadow-md"
+            >
+              <Sparkles className="w-4 h-4 text-cyan-400" />
+              ⚡ Instant Presentation Demo Mode (1-Click Bypass)
+            </button>
+          </div>
         </form>
 
         {/* OAuth Single Sign On */}
