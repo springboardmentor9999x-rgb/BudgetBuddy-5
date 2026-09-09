@@ -6,9 +6,14 @@ from app.core.config import settings
 from app.core.database import engine, Base
 from app.api.v1.api import api_router
 from app.models import *  # Ensure all models are registered
+from seed import seed_database
 
-# Create database tables
+# Create database tables and automatically seed demo data
 Base.metadata.create_all(bind=engine)
+try:
+    seed_database()
+except Exception as e:
+    print(f"Startup database seeding note: {e}")
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
