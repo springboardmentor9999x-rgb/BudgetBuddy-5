@@ -126,6 +126,34 @@ const Login = () => {
             />
           </div>
 
+          {/* Quick Demo Fill Buttons */}
+          <div className="pt-1">
+            <p className="text-[11px] font-semibold text-slate-400 mb-1.5 text-center">Click to Auto-Fill Demo Credentials:</p>
+            <div className="flex gap-2 justify-center">
+              <button
+                type="button"
+                onClick={() => { setEmail('student@budgetbuddy.com'); setPassword('password123'); }}
+                className="px-3 py-1 rounded-lg bg-cyan-950/80 border border-cyan-700/50 text-cyan-300 text-xs font-bold hover:bg-cyan-900/80 transition"
+              >
+                Student
+              </button>
+              <button
+                type="button"
+                onClick={() => { setEmail('premium@budgetbuddy.com'); setPassword('password123'); }}
+                className="px-3 py-1 rounded-lg bg-purple-950/80 border border-purple-700/50 text-purple-300 text-xs font-bold hover:bg-purple-900/80 transition"
+              >
+                Premium
+              </button>
+              <button
+                type="button"
+                onClick={() => { setEmail('admin@budgetbuddy.com'); setPassword('password123'); }}
+                className="px-3 py-1 rounded-lg bg-emerald-950/80 border border-emerald-700/50 text-emerald-300 text-xs font-bold hover:bg-emerald-900/80 transition"
+              >
+                Admin
+              </button>
+            </div>
+          </div>
+
           <button
             type="submit"
             disabled={loading}

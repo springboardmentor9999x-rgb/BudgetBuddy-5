@@ -15,48 +15,58 @@ def seed_database():
     db = SessionLocal()
 
     try:
-        # Check if already seeded
-        if db.query(User).filter(User.email == "admin@budgetbuddy.com").first():
-            print("Database already contains seed data. Skipping seeder.")
-            return
-
         hashed_pwd = get_password_hash("password123")
 
-        # 1. Create Admin User
-        admin_user = User(
-            email="admin@budgetbuddy.com",
-            full_name="System Administrator",
-            hashed_password=hashed_pwd,
-            role=UserRole.ADMIN.value,
-            is_email_verified=True
-        )
-        db.add(admin_user)
-        db.flush()
-        db.add(Profile(user_id=admin_user.id, monthly_income_target=5000.0, preferred_currency="USD"))
+        # 1. Admin User
+        admin_user = db.query(User).filter(User.email == "admin@budgetbuddy.com").first()
+        if not admin_user:
+            admin_user = User(
+                email="admin@budgetbuddy.com",
+                full_name="System Administrator",
+                hashed_password=hashed_pwd,
+                role=UserRole.ADMIN.value,
+                is_email_verified=True
+            )
+            db.add(admin_user)
+            db.flush()
+            db.add(Profile(user_id=admin_user.id, monthly_income_target=5000.0, preferred_currency="USD"))
+        else:
+            admin_user.hashed_password = hashed_pwd
+            admin_user.is_email_verified = True
 
-        # 2. Create Student User
-        student_user = User(
-            email="student@budgetbuddy.com",
-            full_name="bharadwaj (Student)",
-            hashed_password=hashed_pwd,
-            role=UserRole.STUDENT.value,
-            is_email_verified=True
-        )
-        db.add(student_user)
-        db.flush()
-        db.add(Profile(user_id=student_user.id, monthly_income_target=1200.0, preferred_currency="USD", phone="+15550192834", bio="CS Major interested in budgeting & personal finance."))
+        # 2. Student User
+        student_user = db.query(User).filter(User.email == "student@budgetbuddy.com").first()
+        if not student_user:
+            student_user = User(
+                email="student@budgetbuddy.com",
+                full_name="bharadwaj (Student)",
+                hashed_password=hashed_pwd,
+                role=UserRole.STUDENT.value,
+                is_email_verified=True
+            )
+            db.add(student_user)
+            db.flush()
+            db.add(Profile(user_id=student_user.id, monthly_income_target=1200.0, preferred_currency="USD", phone="+15550192834", bio="CS Major interested in budgeting & personal finance."))
+        else:
+            student_user.hashed_password = hashed_pwd
+            student_user.is_email_verified = True
 
-        # 3. Create Premium User
-        premium_user = User(
-            email="premium@budgetbuddy.com",
-            full_name="yashwanth (Premium)",
-            hashed_password=hashed_pwd,
-            role=UserRole.PREMIUM.value,
-            is_email_verified=True
-        )
-        db.add(premium_user)
-        db.flush()
-        db.add(Profile(user_id=premium_user.id, monthly_income_target=3500.0, preferred_currency="USD"))
+        # 3. Premium User
+        premium_user = db.query(User).filter(User.email == "premium@budgetbuddy.com").first()
+        if not premium_user:
+            premium_user = User(
+                email="premium@budgetbuddy.com",
+                full_name="yashwanth (Premium)",
+                hashed_password=hashed_pwd,
+                role=UserRole.PREMIUM.value,
+                is_email_verified=True
+            )
+            db.add(premium_user)
+            db.flush()
+            db.add(Profile(user_id=premium_user.id, monthly_income_target=3500.0, preferred_currency="USD"))
+        else:
+            premium_user.hashed_password = hashed_pwd
+            premium_user.is_email_verified = True
 
         db.commit()
 
