@@ -20,7 +20,6 @@ function Expenses() {
     return (
         <div
             style={{
-                display: "flex",
                 minHeight: "100vh",
                 background: "#f5f7fb",
             }}
@@ -28,9 +27,10 @@ function Expenses() {
 
             <Sidebar />
 
-            <div
+            <main
                 style={{
-                    flex: 1,
+                    marginLeft: "250px",
+                    minHeight: "100vh",
                     padding: "20px",
                     boxSizing: "border-box",
                 }}
@@ -54,7 +54,7 @@ function Expenses() {
                     refresh={expenseRefresh}
                 />
 
-            </div>
+            </main>
 
         </div>
     );

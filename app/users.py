@@ -133,6 +133,7 @@ def register(
     new_user = User(
         username=username,
         email=email,
+        phone=user.phone,
         password=hash_password(user.password),
 
         # All new registrations are normal users

@@ -98,7 +98,9 @@ function UserManagement() {
 
     const handleDeleteUser = async (userId, username, role) => {
         if (role === "admin") {
-            toast.error("The administrator account cannot be deleted.");
+            toast.error(
+                "The administrator account cannot be deleted."
+            );
             return;
         }
 
@@ -162,7 +164,13 @@ function UserManagement() {
 
     if (authLoading || loading) {
         return (
-            <div style={{ padding: "40px", textAlign: "center", fontSize: "20px" }}>
+            <div
+                style={{
+                    padding: "40px",
+                    textAlign: "center",
+                    fontSize: "20px",
+                }}
+            >
                 Loading User Management...
             </div>
         );
@@ -188,22 +196,23 @@ function UserManagement() {
     return (
         <div
             style={{
-                display: "flex",
                 minHeight: "100vh",
                 background: "#f5f7fb",
             }}
         >
             <Sidebar />
 
-            <div
+            <main
                 style={{
-                    flex: 1,
+                    marginLeft: "250px",
+                    minHeight: "100vh",
                     padding: "20px",
                     boxSizing: "border-box",
                 }}
             >
                 <Navbar />
 
+                {/* Page Header */}
                 <div
                     style={{
                         display: "flex",
@@ -220,7 +229,12 @@ function UserManagement() {
                             👥 User Management
                         </h1>
 
-                        <p style={{ color: "#64748b", margin: 0 }}>
+                        <p
+                            style={{
+                                color: "#64748b",
+                                margin: 0,
+                            }}
+                        >
                             Admin-only account and subscription management.
                             Private financial information is not displayed.
                         </p>
@@ -234,6 +248,7 @@ function UserManagement() {
                     </button>
                 </div>
 
+                {/* Search */}
                 <div
                     style={{
                         background: "white",
@@ -252,6 +267,7 @@ function UserManagement() {
                     />
                 </div>
 
+                {/* Users Table */}
                 <div
                     style={{
                         background: "white",
@@ -268,15 +284,28 @@ function UserManagement() {
                             marginBottom: "15px",
                         }}
                     >
-                        <h2 style={{ margin: 0 }}>Registered Users</h2>
+                        <h2 style={{ margin: 0 }}>
+                            Registered Users
+                        </h2>
+
                         <span style={{ color: "#64748b" }}>
                             {filteredUsers.length} of {users.length} users
                         </span>
                     </div>
 
-                    <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                    <table
+                        style={{
+                            width: "100%",
+                            borderCollapse: "collapse",
+                        }}
+                    >
                         <thead>
-                            <tr style={{ textAlign: "left", background: "#f8fafc" }}>
+                            <tr
+                                style={{
+                                    textAlign: "left",
+                                    background: "#f8fafc",
+                                }}
+                            >
                                 {[
                                     "ID",
                                     "Username",
@@ -287,7 +316,10 @@ function UserManagement() {
                                     "Account Created",
                                     "Actions",
                                 ].map((heading) => (
-                                    <th key={heading} style={tableHeader}>
+                                    <th
+                                        key={heading}
+                                        style={tableHeader}
+                                    >
                                         {heading}
                                     </th>
                                 ))}
@@ -297,13 +329,22 @@ function UserManagement() {
                         <tbody>
                             {filteredUsers.map((item) => (
                                 <tr key={item.id}>
-                                    <td style={tableCell}>{item.id}</td>
+                                    <td style={tableCell}>
+                                        {item.id}
+                                    </td>
 
-                                    <td style={{ ...tableCell, fontWeight: "600" }}>
+                                    <td
+                                        style={{
+                                            ...tableCell,
+                                            fontWeight: "600",
+                                        }}
+                                    >
                                         {item.username}
                                     </td>
 
-                                    <td style={tableCell}>{item.email}</td>
+                                    <td style={tableCell}>
+                                        {item.email}
+                                    </td>
 
                                     <td style={tableCell}>
                                         <span
@@ -319,13 +360,21 @@ function UserManagement() {
                                                         : "#0369a1",
                                             }}
                                         >
-                                            {item.role === "admin" ? "Admin" : "User"}
+                                            {item.role === "admin"
+                                                ? "Admin"
+                                                : "User"}
                                         </span>
                                     </td>
 
                                     <td style={tableCell}>
                                         {item.role === "admin" ? (
-                                            <span style={{ ...badge, background: "#ede9fe", color: "#7c3aed" }}>
+                                            <span
+                                                style={{
+                                                    ...badge,
+                                                    background: "#ede9fe",
+                                                    color: "#7c3aed",
+                                                }}
+                                            >
                                                 Admin
                                             </span>
                                         ) : (
@@ -339,19 +388,34 @@ function UserManagement() {
                                                 }
                                                 style={selectStyle}
                                             >
-                                                <option value="normal">Normal</option>
-                                                <option value="premium">Premium</option>
+                                                <option value="normal">
+                                                    Normal
+                                                </option>
+
+                                                <option value="premium">
+                                                    Premium
+                                                </option>
                                             </select>
                                         )}
                                     </td>
 
                                     <td style={tableCell}>
                                         {item.verified ? (
-                                            <span style={{ color: "#16a34a", fontWeight: "600" }}>
+                                            <span
+                                                style={{
+                                                    color: "#16a34a",
+                                                    fontWeight: "600",
+                                                }}
+                                            >
                                                 ✓ Verified
                                             </span>
                                         ) : (
-                                            <span style={{ color: "#dc2626", fontWeight: "600" }}>
+                                            <span
+                                                style={{
+                                                    color: "#dc2626",
+                                                    fontWeight: "600",
+                                                }}
+                                            >
                                                 ✕ Unverified
                                             </span>
                                         )}
@@ -407,6 +471,7 @@ function UserManagement() {
                     </table>
                 </div>
 
+                {/* Create User Modal */}
                 {showCreateUser && (
                     <div style={modalOverlay}>
                         <div style={modal}>
@@ -461,8 +526,13 @@ function UserManagement() {
                                     }
                                     style={modalInput}
                                 >
-                                    <option value="normal">Normal</option>
-                                    <option value="premium">Premium</option>
+                                    <option value="normal">
+                                        Normal
+                                    </option>
+
+                                    <option value="premium">
+                                        Premium
+                                    </option>
                                 </select>
 
                                 <div
@@ -475,13 +545,18 @@ function UserManagement() {
                                 >
                                     <button
                                         type="button"
-                                        onClick={() => setShowCreateUser(false)}
+                                        onClick={() =>
+                                            setShowCreateUser(false)
+                                        }
                                         style={cancelButton}
                                     >
                                         Cancel
                                     </button>
 
-                                    <button type="submit" style={primaryButton}>
+                                    <button
+                                        type="submit"
+                                        style={primaryButton}
+                                    >
                                         Create User
                                     </button>
                                 </div>
@@ -489,10 +564,14 @@ function UserManagement() {
                         </div>
                     </div>
                 )}
-            </div>
+            </main>
         </div>
     );
 }
+
+/* =========================
+   BUTTON STYLES
+========================= */
 
 const primaryButton = {
     padding: "10px 18px",

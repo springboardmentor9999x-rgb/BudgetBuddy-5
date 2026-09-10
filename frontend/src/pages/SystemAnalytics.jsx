@@ -53,7 +53,13 @@ function SystemAnalytics() {
 
     if (authLoading || loading) {
         return (
-            <div style={{ padding: "40px", textAlign: "center", fontSize: "20px" }}>
+            <div
+                style={{
+                    padding: "40px",
+                    textAlign: "center",
+                    fontSize: "20px",
+                }}
+            >
                 Loading System Details...
             </div>
         );
@@ -61,7 +67,12 @@ function SystemAnalytics() {
 
     if (!data) {
         return (
-            <div style={{ padding: "40px", textAlign: "center" }}>
+            <div
+                style={{
+                    padding: "40px",
+                    textAlign: "center",
+                }}
+            >
                 No system details available.
             </div>
         );
@@ -74,22 +85,23 @@ function SystemAnalytics() {
     return (
         <div
             style={{
-                display: "flex",
                 minHeight: "100vh",
                 background: "#f5f7fb",
             }}
         >
             <Sidebar />
 
-            <div
+            <main
                 style={{
-                    flex: 1,
+                    marginLeft: "250px",
+                    minHeight: "100vh",
                     padding: "20px",
                     boxSizing: "border-box",
                 }}
             >
                 <Navbar />
 
+                {/* Page Header */}
                 <div
                     style={{
                         display: "flex",
@@ -106,9 +118,14 @@ function SystemAnalytics() {
                             ⚙️ System Details
                         </h1>
 
-                        <p style={{ color: "#64748b", marginTop: "7px" }}>
-                            Administrative overview of BudgetBuddy system health,
-                            users and module usage.
+                        <p
+                            style={{
+                                color: "#64748b",
+                                marginTop: "7px",
+                            }}
+                        >
+                            Administrative overview of BudgetBuddy system
+                            health, users and module usage.
                         </p>
                     </div>
 
@@ -120,41 +137,142 @@ function SystemAnalytics() {
                     </button>
                 </div>
 
+                {/* System Information */}
                 <SectionTitle title="System Information" />
 
                 <div style={grid}>
-                    <InfoCard title="Application" value="BudgetBuddy" icon="💰" />
-                    <InfoCard title="Architecture" value="React + FastAPI + PostgreSQL" icon="🏗️" />
-                    <InfoCard title="Authentication" value="JWT Authentication" icon="🔐" />
-                    <InfoCard title="Access Control" value="Role-Based Access" icon="🛡️" />
-                    <InfoCard title="Admin Accounts" value={users.admins ?? 0} icon="👑" />
-                    <InfoCard title="System Status" value="Operational" icon="🟢" />
+                    <InfoCard
+                        title="Application"
+                        value="BudgetBuddy"
+                        icon="💰"
+                    />
+
+                    <InfoCard
+                        title="Architecture"
+                        value="React + FastAPI + PostgreSQL"
+                        icon="🏗️"
+                    />
+
+                    <InfoCard
+                        title="Authentication"
+                        value="JWT Authentication"
+                        icon="🔐"
+                    />
+
+                    <InfoCard
+                        title="Access Control"
+                        value="Role-Based Access"
+                        icon="🛡️"
+                    />
+
+                    <InfoCard
+                        title="Admin Accounts"
+                        value={users.admins ?? 0}
+                        icon="👑"
+                    />
+
+                    <InfoCard
+                        title="System Status"
+                        value="Operational"
+                        icon="🟢"
+                    />
                 </div>
 
+                {/* User Statistics */}
                 <SectionTitle title="User Statistics" />
 
                 <div style={grid}>
-                    <StatCard title="Total Users" value={users.total} icon="👥" />
-                    <StatCard title="Normal Users" value={users.normal} icon="👤" />
-                    <StatCard title="Premium Users" value={users.premium} icon="⭐" />
-                    <StatCard title="Verified Users" value={users.verified} icon="✅" />
-                    <StatCard title="Unverified Users" value={users.unverified} icon="⚠️" />
-                    <StatCard title="Premium Percentage" value={`${users.premium_percentage ?? 0}%`} icon="📈" />
+                    <StatCard
+                        title="Total Users"
+                        value={users.total}
+                        icon="👥"
+                    />
+
+                    <StatCard
+                        title="Normal Users"
+                        value={users.normal}
+                        icon="👤"
+                    />
+
+                    <StatCard
+                        title="Premium Users"
+                        value={users.premium}
+                        icon="⭐"
+                    />
+
+                    <StatCard
+                        title="Verified Users"
+                        value={users.verified}
+                        icon="✅"
+                    />
+
+                    <StatCard
+                        title="Unverified Users"
+                        value={users.unverified}
+                        icon="⚠️"
+                    />
+
+                    <StatCard
+                        title="Premium Percentage"
+                        value={`${users.premium_percentage ?? 0}%`}
+                        icon="📈"
+                    />
                 </div>
 
+                {/* System Activity */}
                 <SectionTitle title="System Activity" />
 
                 <div style={grid}>
-                    <StatCard title="Bank Accounts" value={system.bank_accounts} icon="🏦" />
-                    <StatCard title="Budgets" value={system.budgets} icon="📊" />
-                    <StatCard title="Savings Goals" value={system.savings_goals} icon="🎯" />
-                    <StatCard title="Income Records" value={system.income_records} icon="💵" />
-                    <StatCard title="Expense Records" value={system.expense_records} icon="💸" />
-                    <StatCard title="Savings Transactions" value={system.savings_transactions} icon="💎" />
-                    <StatCard title="Notifications" value={system.notifications} icon="🔔" />
-                    <StatCard title="Reports" value={system.reports} icon="📄" />
+                    <StatCard
+                        title="Bank Accounts"
+                        value={system.bank_accounts}
+                        icon="🏦"
+                    />
+
+                    <StatCard
+                        title="Budgets"
+                        value={system.budgets}
+                        icon="📊"
+                    />
+
+                    <StatCard
+                        title="Savings Goals"
+                        value={system.savings_goals}
+                        icon="🎯"
+                    />
+
+                    <StatCard
+                        title="Income Records"
+                        value={system.income_records}
+                        icon="💵"
+                    />
+
+                    <StatCard
+                        title="Expense Records"
+                        value={system.expense_records}
+                        icon="💸"
+                    />
+
+                    <StatCard
+                        title="Savings Transactions"
+                        value={system.savings_transactions}
+                        icon="💎"
+                    />
+
+                    <StatCard
+                        title="Notifications"
+                        value={system.notifications}
+                        icon="🔔"
+                    />
+
+                    <StatCard
+                        title="Reports"
+                        value={system.reports}
+                        icon="📄"
+                    />
                 </div>
 
+                {/* Security Status */}
                 <SectionTitle title="Security Status" />
 
                 <div style={securityGrid}>
@@ -162,27 +280,35 @@ function SystemAnalytics() {
                         label="JWT Authentication"
                         value={security.jwt_authentication}
                     />
+
                     <StatusRow
                         label="Role-Based Access"
                         value={security.role_based_access}
                     />
+
                     <StatusRow
                         label="Admin Protection"
                         value={security.admin_protection}
                     />
+
                     <StatusRow
                         label="User Data Isolation"
                         value={security.user_data_isolation}
                     />
+
                     <StatusRow
                         label="Private Financial Data"
                         value={security.private_financial_data}
                     />
                 </div>
-            </div>
+            </main>
         </div>
     );
 }
+
+/* =========================
+   SECTION TITLE
+========================= */
 
 function SectionTitle({ title }) {
     return (
@@ -198,13 +324,26 @@ function SectionTitle({ title }) {
     );
 }
 
+/* =========================
+   STAT CARD
+========================= */
+
 function StatCard({ title, value, icon }) {
     return (
         <div style={card}>
-            <div style={{ fontSize: "28px" }}>{icon}</div>
-            <div style={{ marginTop: "8px", color: "#64748b" }}>
+            <div style={{ fontSize: "28px" }}>
+                {icon}
+            </div>
+
+            <div
+                style={{
+                    marginTop: "8px",
+                    color: "#64748b",
+                }}
+            >
                 {title}
             </div>
+
             <div
                 style={{
                     marginTop: "5px",
@@ -219,9 +358,23 @@ function StatCard({ title, value, icon }) {
     );
 }
 
+/* =========================
+   INFO CARD
+========================= */
+
 function InfoCard({ title, value, icon }) {
-    return <StatCard title={title} value={value} icon={icon} />;
+    return (
+        <StatCard
+            title={title}
+            value={value}
+            icon={icon}
+        />
+    );
 }
+
+/* =========================
+   SECURITY STATUS ROW
+========================= */
 
 function StatusRow({ label, value }) {
     return (
@@ -236,33 +389,56 @@ function StatusRow({ label, value }) {
                 alignItems: "center",
             }}
         >
-            <span style={{ fontWeight: "600", color: "#334155" }}>
+            <span
+                style={{
+                    fontWeight: "600",
+                    color: "#334155",
+                }}
+            >
                 {label}
             </span>
 
             <span
                 style={{
-                    color: value ? "#16a34a" : "#dc2626",
+                    color: value
+                        ? "#16a34a"
+                        : "#dc2626",
                     fontWeight: "700",
                 }}
             >
-                {value ? "✓ Protected" : "✕ Check"}
+                {value
+                    ? "✓ Protected"
+                    : "✕ Check"}
             </span>
         </div>
     );
 }
 
+/* =========================
+   GRID STYLES
+========================= */
+
 const grid = {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
+    gridTemplateColumns:
+        "repeat(auto-fit, minmax(210px, 1fr))",
     gap: "18px",
 };
 
+/* =========================
+   SECURITY GRID
+========================= */
+
 const securityGrid = {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+    gridTemplateColumns:
+        "repeat(auto-fit, minmax(280px, 1fr))",
     gap: "15px",
 };
+
+/* =========================
+   CARD STYLE
+========================= */
 
 const card = {
     background: "white",
@@ -270,6 +446,10 @@ const card = {
     borderRadius: "12px",
     boxShadow: "0 2px 10px rgba(0,0,0,0.08)",
 };
+
+/* =========================
+   REFRESH BUTTON
+========================= */
 
 const refreshButton = {
     padding: "10px 18px",

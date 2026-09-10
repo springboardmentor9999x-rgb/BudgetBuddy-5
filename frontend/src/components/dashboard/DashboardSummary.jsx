@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "../../services/api";
 
-function DashboardSummary() {
+function DashboardSummary({ month, year }) {
 
     const [totalIncome, setTotalIncome] = useState(0);
     const [totalExpense, setTotalExpense] = useState(0);
@@ -12,7 +12,14 @@ function DashboardSummary() {
 
         try {
 
-            const response = await api.get("/dashboard/summary");
+            let url = "/dashboard/summary";
+
+            // Apply month/year filter only when provided
+            if (month && year) {
+                url += `?month=${month}&year=${year}`;
+            }
+
+            const response = await api.get(url);
 
             setTotalIncome(
                 Number(response.data.total_income || 0)
@@ -32,7 +39,7 @@ function DashboardSummary() {
 
         } catch (error) {
 
-            console.log(
+            console.error(
                 "Dashboard summary error:",
                 error
             );
@@ -46,7 +53,7 @@ function DashboardSummary() {
 
         loadSummary();
 
-    }, []);
+    }, [month, year]);
 
 
     return (
@@ -55,22 +62,26 @@ function DashboardSummary() {
             style={{
                 display: "grid",
                 gridTemplateColumns:
-                    "repeat(4, 1fr)",
+                    "repeat(4, minmax(0, 1fr))",
                 gap: "20px",
                 marginTop: "25px",
                 marginBottom: "30px",
             }}
         >
 
-            {/* TOTAL INCOME */}
+            {/* =========================================
+                TOTAL INCOME
+               ========================================= */}
 
             <div
                 style={{
-                    background: "white",
+                    background: "#ffffff",
                     padding: "25px",
                     borderRadius: "12px",
                     boxShadow:
                         "0 2px 10px rgba(0,0,0,0.08)",
+                    minHeight: "125px",
+                    boxSizing: "border-box",
                 }}
             >
 
@@ -78,6 +89,7 @@ function DashboardSummary() {
                     style={{
                         color: "#666",
                         margin: 0,
+                        fontSize: "16px",
                     }}
                 >
                     Total Income
@@ -87,6 +99,8 @@ function DashboardSummary() {
                     style={{
                         color: "#16a34a",
                         marginTop: "10px",
+                        marginBottom: 0,
+                        fontSize: "24px",
                     }}
                 >
                     ₹ {totalIncome.toLocaleString("en-IN")}
@@ -95,15 +109,19 @@ function DashboardSummary() {
             </div>
 
 
-            {/* TOTAL EXPENSE */}
+            {/* =========================================
+                TOTAL EXPENSE
+               ========================================= */}
 
             <div
                 style={{
-                    background: "white",
+                    background: "#ffffff",
                     padding: "25px",
                     borderRadius: "12px",
                     boxShadow:
                         "0 2px 10px rgba(0,0,0,0.08)",
+                    minHeight: "125px",
+                    boxSizing: "border-box",
                 }}
             >
 
@@ -111,6 +129,7 @@ function DashboardSummary() {
                     style={{
                         color: "#666",
                         margin: 0,
+                        fontSize: "16px",
                     }}
                 >
                     Total Expense
@@ -120,6 +139,8 @@ function DashboardSummary() {
                     style={{
                         color: "#dc2626",
                         marginTop: "10px",
+                        marginBottom: 0,
+                        fontSize: "24px",
                     }}
                 >
                     ₹ {totalExpense.toLocaleString("en-IN")}
@@ -128,15 +149,19 @@ function DashboardSummary() {
             </div>
 
 
-            {/* TOTAL SAVINGS */}
+            {/* =========================================
+                TOTAL SAVINGS
+               ========================================= */}
 
             <div
                 style={{
-                    background: "white",
+                    background: "#ffffff",
                     padding: "25px",
                     borderRadius: "12px",
                     boxShadow:
                         "0 2px 10px rgba(0,0,0,0.08)",
+                    minHeight: "125px",
+                    boxSizing: "border-box",
                 }}
             >
 
@@ -144,6 +169,7 @@ function DashboardSummary() {
                     style={{
                         color: "#666",
                         margin: 0,
+                        fontSize: "16px",
                     }}
                 >
                     Total Savings
@@ -153,6 +179,8 @@ function DashboardSummary() {
                     style={{
                         color: "#9333ea",
                         marginTop: "10px",
+                        marginBottom: 0,
+                        fontSize: "24px",
                     }}
                 >
                     ₹ {totalSavings.toLocaleString("en-IN")}
@@ -161,15 +189,19 @@ function DashboardSummary() {
             </div>
 
 
-            {/* AVAILABLE BALANCE */}
+            {/* =========================================
+                AVAILABLE BALANCE
+               ========================================= */}
 
             <div
                 style={{
-                    background: "white",
+                    background: "#ffffff",
                     padding: "25px",
                     borderRadius: "12px",
                     boxShadow:
                         "0 2px 10px rgba(0,0,0,0.08)",
+                    minHeight: "125px",
+                    boxSizing: "border-box",
                 }}
             >
 
@@ -177,6 +209,7 @@ function DashboardSummary() {
                     style={{
                         color: "#666",
                         margin: 0,
+                        fontSize: "16px",
                     }}
                 >
                     Available Balance
@@ -189,12 +222,15 @@ function DashboardSummary() {
                                 ? "#2563eb"
                                 : "#dc2626",
                         marginTop: "10px",
+                        marginBottom: 0,
+                        fontSize: "24px",
                     }}
                 >
                     ₹ {totalBalance.toLocaleString("en-IN")}
                 </h2>
 
             </div>
+
 
         </div>
 

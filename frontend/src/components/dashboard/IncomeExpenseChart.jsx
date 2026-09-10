@@ -22,7 +22,7 @@ ChartJS.register(
     Legend
 );
 
-function IncomeExpenseChart() {
+function IncomeExpenseChart({ month, year }) {
 
     const [income, setIncome] = useState(0);
     const [expense, setExpense] = useState(0);
@@ -35,7 +35,13 @@ function IncomeExpenseChart() {
             try {
 
                 const response = await api.get(
-                    "/dashboard/summary"
+                    "/dashboard/summary",
+                    {
+                        params: {
+                            month,
+                            year,
+                        },
+                    }
                 );
 
                 setIncome(
@@ -64,11 +70,12 @@ function IncomeExpenseChart() {
                 );
 
             }
+
         };
 
         loadData();
 
-    }, []);
+    }, [month, year]);
 
     const data = {
 
@@ -89,9 +96,9 @@ function IncomeExpenseChart() {
                 ],
 
                 backgroundColor: [
-                    "#16A34A", // Income - Green
-                    "#DC2626", // Expense - Red
-                    "#9333EA", // Savings - Purple
+                    "#16A34A",
+                    "#DC2626",
+                    "#9333EA",
                 ],
 
                 borderColor: [

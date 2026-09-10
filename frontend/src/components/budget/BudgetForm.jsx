@@ -3,7 +3,6 @@ import api from "../../services/api";
 import { toast } from "react-toastify";
 
 function BudgetForm({ refresh }) {
-
     const currentDate = new Date();
 
     const [category, setCategory] = useState("");
@@ -18,12 +17,10 @@ function BudgetForm({ refresh }) {
     );
 
     const [bankAccountId, setBankAccountId] = useState("");
-
     const [bankAccounts, setBankAccounts] = useState([]);
 
     const [loading, setLoading] = useState(false);
     const [loadingBanks, setLoadingBanks] = useState(true);
-
 
     const months = [
         "January",
@@ -40,51 +37,57 @@ function BudgetForm({ refresh }) {
         "December",
     ];
 
-
-    // ==================================================
+    // ==========================================
     // LOAD BANK ACCOUNTS
-    // ==================================================
+    // ==========================================
 
     useEffect(() => {
-
         const loadBankAccounts = async () => {
-
             try {
-
                 setLoadingBanks(true);
 
                 const response = await api.get("/banks");
 
-                setBankAccounts(response.data || []);
+                const accounts = response.data || [];
 
+                setBankAccounts(accounts);
+
+                // Automatically select primary account
+                const primaryAccount = accounts.find(
+                    (bank) => bank.is_primary === true
+                );
+
+                if (primaryAccount) {
+                    setBankAccountId(String(primaryAccount.id));
+                }
             } catch (error) {
-
                 console.log(
                     "BANK ACCOUNT LOAD ERROR:",
                     error.response?.data || error
                 );
 
-                toast.error(
-                    "Unable to load bank accounts"
-                );
-
+                toast.error("Unable to load bank accounts");
             } finally {
-
                 setLoadingBanks(false);
             }
         };
 
         loadBankAccounts();
-
     }, []);
 
+    // ==========================================
+    // GET SELECTED BANK
+    // ==========================================
 
-    // ==================================================
+    const selectedBank = bankAccounts.find(
+        (bank) => String(bank.id) === String(bankAccountId)
+    );
+
+    // ==========================================
     // SUBMIT
-    // ==================================================
+    // ==========================================
 
     const handleSubmit = async (e) => {
-
         e.preventDefault();
 
         const cleanCategory = category.trim();
@@ -93,142 +96,86 @@ function BudgetForm({ refresh }) {
         const selectedYear = Number(year);
         const selectedBank = Number(bankAccountId);
 
-
         if (!cleanCategory) {
-
-            toast.error(
-                "Please enter a category"
-            );
-
+            toast.error("Please enter a category");
             return;
         }
-
 
         if (!limit || limit <= 0) {
-
-            toast.error(
-                "Monthly limit must be greater than 0"
-            );
-
+            toast.error("Monthly limit must be greater than 0");
             return;
         }
 
-
-        if (
-            selectedMonth < 1 ||
-            selectedMonth > 12
-        ) {
-
-            toast.error(
-                "Please select a valid month"
-            );
-
+        if (selectedMonth < 1 || selectedMonth > 12) {
+            toast.error("Please select a valid month");
             return;
         }
 
-
-        if (
-            selectedYear < 2020 ||
-            selectedYear > 2100
-        ) {
-
-            toast.error(
-                "Please enter a valid year"
-            );
-
+        if (selectedYear < 2020 || selectedYear > 2100) {
+            toast.error("Please enter a valid year");
             return;
         }
-
 
         if (!selectedBank) {
-
-            toast.error(
-                "Please select a bank account"
-            );
-
+            toast.error("Please select a bank account");
             return;
         }
 
-
         try {
-
             setLoading(true);
 
-
             await api.post("/budgets", {
-
                 category: cleanCategory,
-
                 monthly_limit: limit,
-
                 month: selectedMonth,
-
                 year: selectedYear,
-
                 bank_account_id: selectedBank,
-
             });
 
-
-            toast.success(
-                "Budget added successfully"
-            );
-
+            toast.success("Budget added successfully");
 
             setCategory("");
-
             setMonthlyLimit("");
 
-            setBankAccountId("");
-
+            // Keep selected bank instead of clearing it
+            // so the next budget uses the same account.
+            setBankAccountId(String(selectedBank));
 
             refresh();
-
-
         } catch (error) {
-
             console.log(
                 "BUDGET CREATE ERROR:",
                 error.response?.data || error
             );
 
-
             toast.error(
                 error.response?.data?.detail ||
                 "Unable to add budget"
             );
-
         } finally {
-
             setLoading(false);
         }
     };
 
-
-    // ==================================================
+    // ==========================================
     // RENDER
-    // ==================================================
+    // ==========================================
 
     return (
-
         <div
             style={{
                 background: "white",
                 padding: "25px",
                 borderRadius: "12px",
-                boxShadow:
-                    "0 2px 10px rgba(0,0,0,0.08)",
+                boxShadow: "0 2px 10px rgba(0,0,0,0.08)",
                 marginTop: "25px",
             }}
         >
-
             <h2 style={{ marginTop: 0 }}>
                 Set Monthly Budget
             </h2>
 
-
             <form onSubmit={handleSubmit}>
-
                 <div
                     style={{
                         display: "grid",
@@ -237,23 +184,17 @@ function BudgetForm({ refresh }) {
                         gap: "15px",
                     }}
                 >
-
                     {/* CATEGORY */}
 
                     <div>
-
-                        <label>
-                            Category
-                        </label>
+                        <label>Category</label>
 
                         <input
                             type="text"
                             placeholder="Example: Food"
                             value={category}
                             onChange={(e) =>
-                                setCategory(
-                                    e.target.value
-                                )
+                                setCategory(e.target.value)
                             }
                             style={{
                                 width: "100%",
@@ -264,26 +205,19 @@ function BudgetForm({ refresh }) {
                                 borderRadius: "6px",
                             }}
                         />
-
                     </div>
-
 
                     {/* MONTHLY LIMIT */}
 
                     <div>
-
-                        <label>
-                            Monthly Limit
-                        </label>
+                        <label>Monthly Limit</label>
 
                         <input
                             type="number"
                             placeholder="Example: 5000"
                             value={monthlyLimit}
                             onChange={(e) =>
-                                setMonthlyLimit(
-                                    e.target.value
-                                )
+                                setMonthlyLimit(e.target.value)
                             }
                             min="1"
                             step="0.01"
@@ -296,26 +230,17 @@ function BudgetForm({ refresh }) {
                                 borderRadius: "6px",
                             }}
                         />
-
                     </div>
-
 
                     {/* MONTH */}
 
                     <div>
-
-                        <label>
-                            Month
-                        </label>
+                        <label>Month</label>
 
                         <select
                             value={month}
                             onChange={(e) =>
-                                setMonth(
-                                    Number(
-                                        e.target.value
-                                    )
-                                )
+                                setMonth(Number(e.target.value))
                             }
                             style={{
                                 width: "100%",
@@ -325,42 +250,27 @@ function BudgetForm({ refresh }) {
                                 borderRadius: "6px",
                             }}
                         >
-
-                            {months.map(
-                                (monthName, index) => (
-
-                                    <option
-                                        key={index + 1}
-                                        value={index + 1}
-                                    >
-                                        {monthName}
-                                    </option>
-
-                                )
-                            )}
-
+                            {months.map((monthName, index) => (
+                                <option
+                                    key={index + 1}
+                                    value={index + 1}
+                                >
+                                    {monthName}
+                                </option>
+                            ))}
                         </select>
-
                     </div>
-
 
                     {/* YEAR */}
 
                     <div>
-
-                        <label>
-                            Year
-                        </label>
+                        <label>Year</label>
 
                         <input
                             type="number"
                             value={year}
                             onChange={(e) =>
-                                setYear(
-                                    Number(
-                                        e.target.value
-                                    )
-                                )
+                                setYear(Number(e.target.value))
                             }
                             min="2020"
                             max="2100"
@@ -373,24 +283,17 @@ function BudgetForm({ refresh }) {
                                 borderRadius: "6px",
                             }}
                         />
-
                     </div>
-
 
                     {/* BANK ACCOUNT */}
 
                     <div>
-
-                        <label>
-                            Bank Account
-                        </label>
+                        <label>Bank Account</label>
 
                         <select
                             value={bankAccountId}
                             onChange={(e) =>
-                                setBankAccountId(
-                                    e.target.value
-                                )
+                                setBankAccountId(e.target.value)
                             }
                             disabled={
                                 loadingBanks ||
@@ -405,41 +308,64 @@ function BudgetForm({ refresh }) {
                                 background: "white",
                             }}
                         >
-
                             <option value="">
                                 {loadingBanks
                                     ? "Loading bank accounts..."
                                     : bankAccounts.length === 0
                                         ? "No bank accounts found"
-                                        : "Select Bank Account"
-                                }
+                                        : "Select Bank Account"}
                             </option>
 
+                            {bankAccounts.map((bank) => (
+                                <option
+                                    key={bank.id}
+                                    value={bank.id}
+                                >
+                                    {bank.bank_name}
+                                    {" - "}
+                                    ****
+                                    {String(
+                                        bank.account_number
+                                    ).slice(-4)}
 
-                            {bankAccounts.map(
-                                (bank) => (
-
-                                    <option
-                                        key={bank.id}
-                                        value={bank.id}
-                                    >
-                                        {bank.bank_name}
-                                        {" - "}
-                                        ****
-                                        {String(
-                                            bank.account_number
-                                        ).slice(-4)}
-                                    </option>
-
-                                )
-                            )}
-
+                                    {bank.is_primary
+                                        ? " (Primary)"
+                                        : ""}
+                                </option>
+                            ))}
                         </select>
 
+                        {/* SELECTED ACCOUNT INFO */}
+
+                        {selectedBank && (
+                            <div
+                                style={{
+                                    marginTop: "8px",
+                                    padding: "8px 10px",
+                                    background: "#eff6ff",
+                                    color: "#1e40af",
+                                    borderRadius: "6px",
+                                    fontSize: "13px",
+                                }}
+                            >
+                                💳 Budget linked to:{" "}
+                                <strong>
+                                    {selectedBank.bank_name}
+                                </strong>
+                                {" - ****"}
+                                {String(
+                                    selectedBank.account_number
+                                ).slice(-4)}
+
+                                {selectedBank.is_primary && (
+                                    <span>
+                                        {" "}• Primary
+                                    </span>
+                                )}
+                            </div>
+                        )}
                     </div>
-
                 </div>
-
 
                 <button
                     type="submit"
@@ -469,15 +395,9 @@ function BudgetForm({ refresh }) {
                         fontSize: "15px",
                     }}
                 >
-
-                    {loading
-                        ? "Adding..."
-                        : "Add Budget"}
-
+                    {loading ? "Adding..." : "Add Budget"}
                 </button>
-
             </form>
-
         </div>
     );
 }

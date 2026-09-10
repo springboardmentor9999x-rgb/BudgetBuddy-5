@@ -44,12 +44,17 @@ function Sidebar() {
     return (
         <div
             style={{
+                position: "fixed",
+                top: 0,
+                left: 0,
                 width: "250px",
-                minHeight: "100vh",
+                height: "100vh",
                 background: "#1E3A8A",
                 color: "white",
                 padding: "25px",
                 boxSizing: "border-box",
+                overflowY: "auto",
+                zIndex: 1000,
             }}
         >
             {/* ==========================================

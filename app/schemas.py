@@ -16,8 +16,13 @@ from pydantic import (
 # =========================================================
 
 class UserCreate(BaseModel):
-    username: str = Field(min_length=3, max_length=50)
+    username: str
     email: EmailStr
+    phone: str = Field(
+        min_length=10,
+        max_length=10,
+        pattern=r"^\d{10}$"
+    )
     password: str
     confirm_password: str
     role: str = "user"
@@ -59,11 +64,11 @@ class UserCreate(BaseModel):
 
         return self
 
-
 class UserResponse(BaseModel):
     id: int
     username: str
     email: EmailStr
+    phone: str | None = None
     role: str
     plan: str
     verified: bool

@@ -7,6 +7,7 @@ import BudgetForm from "../components/budget/BudgetForm";
 import BudgetList from "../components/budget/BudgetList";
 
 function Budgets() {
+
     const [refresh, setRefresh] = useState(false);
 
     const reloadBudgets = () => {
@@ -16,19 +17,22 @@ function Budgets() {
     return (
         <div
             style={{
-                display: "flex",
                 minHeight: "100vh",
                 background: "#f5f7fb",
             }}
         >
+
             <Sidebar />
 
-            <div
+            <main
                 style={{
-                    flex: 1,
+                    marginLeft: "250px",
+                    minHeight: "100vh",
                     padding: "20px",
+                    boxSizing: "border-box",
                 }}
             >
+
                 <Navbar />
 
                 <h1
@@ -46,7 +50,9 @@ function Budgets() {
                 <BudgetList
                     refresh={refresh}
                 />
-            </div>
+
+            </main>
+
         </div>
     );
 }

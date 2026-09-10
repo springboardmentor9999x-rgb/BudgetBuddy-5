@@ -52,7 +52,6 @@ def create_budget(
     # ------------------------------------------------------
 
     if not category:
-
         raise HTTPException(
             status_code=400,
             detail="Category cannot be empty"
@@ -63,7 +62,6 @@ def create_budget(
     # ------------------------------------------------------
 
     if budget_data.monthly_limit <= 0:
-
         raise HTTPException(
             status_code=400,
             detail="Monthly limit must be greater than 0"
@@ -73,34 +71,33 @@ def create_budget(
     # VALIDATE MONTH
     # ------------------------------------------------------
 
-    if (
-        budget_data.month < 1
-        or budget_data.month > 12
-    ):
-
+    if budget_data.month < 1 or budget_data.month > 12:
         raise HTTPException(
             status_code=400,
             detail="Month must be between 1 and 12"
         )
 
     # ------------------------------------------------------
-    # CHECK BANK ACCOUNT
+    # VALIDATE BANK ACCOUNT
+    # BANK ACCOUNT IS COMPULSORY FOR BUDGET
     # ------------------------------------------------------
+
+    if budget_data.bank_account_id is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Bank account is required for a budget"
+        )
 
     bank_account = (
         db.query(BankAccount)
         .filter(
-            BankAccount.id ==
-            budget_data.bank_account_id,
-
-            BankAccount.user_id ==
-            current_user.id
+            BankAccount.id == budget_data.bank_account_id,
+            BankAccount.user_id == current_user.id
         )
         .first()
     )
 
     if bank_account is None:
-
         raise HTTPException(
             status_code=404,
             detail="Bank account not found"
@@ -108,6 +105,10 @@ def create_budget(
 
     # ------------------------------------------------------
     # CHECK DUPLICATE
+    #
+    # One budget per category + month + year.
+    #
+    # Bank account does NOT determine the budget.
     # ------------------------------------------------------
 
     existing_budget = (
@@ -116,32 +117,22 @@ def create_budget(
             Budget.user_id == current_user.id,
 
             func.lower(
-                func.trim(
-                    Budget.category
-                )
-            )
-            ==
-            category.lower(),
+                func.trim(Budget.category)
+            ) == category.lower(),
 
-            Budget.month ==
-            budget_data.month,
+            Budget.month == budget_data.month,
 
-            Budget.year ==
-            budget_data.year,
-
-            Budget.bank_account_id ==
-            budget_data.bank_account_id
+            Budget.year == budget_data.year
         )
         .first()
     )
 
     if existing_budget:
-
         raise HTTPException(
             status_code=400,
             detail=(
                 "A budget already exists for this "
-                "category, bank account, month and year"
+                "category, month and year"
             )
         )
 
@@ -151,24 +142,19 @@ def create_budget(
 
     new_budget = Budget(
         user_id=current_user.id,
-
         category=category,
-
-        monthly_limit=
-            budget_data.monthly_limit,
-
+        monthly_limit=budget_data.monthly_limit,
         month=budget_data.month,
-
         year=budget_data.year,
 
-        bank_account_id=
-            budget_data.bank_account_id
+        # Bank account is stored because it is compulsory
+        # when creating the budget.
+        bank_account_id=budget_data.bank_account_id
     )
 
     db.add(new_budget)
 
     db.commit()
-
     db.refresh(new_budget)
 
     # ------------------------------------------------------
@@ -177,15 +163,12 @@ def create_budget(
 
     notification = Notification(
         user_id=current_user.id,
-
         message=(
             f"Budget for '{category}' "
             f"created successfully for "
             f"{bank_account.bank_name}."
         ),
-
         notification_type="budget",
-
         created_at=datetime.now(timezone.utc)
     )
 
@@ -208,6 +191,9 @@ def get_budgets(
     month: int | None = None,
     year: int | None = None,
 
+    # Optional filter.
+    # This is ONLY for viewing/filtering budgets.
+    # It does NOT affect spending calculation.
     bank_account_id: int | None = None,
 
     db: Session = Depends(get_db),
@@ -228,18 +214,14 @@ def get_budgets(
     # VALIDATE MONTH
     # ------------------------------------------------------
 
-    if (
-        month < 1
-        or month > 12
-    ):
-
+    if month < 1 or month > 12:
         raise HTTPException(
             status_code=400,
             detail="Month must be between 1 and 12"
         )
 
     # ------------------------------------------------------
-    # VALIDATE BANK
+    # VALIDATE BANK FILTER
     # ------------------------------------------------------
 
     if bank_account_id is not None:
@@ -247,17 +229,13 @@ def get_budgets(
         bank = (
             db.query(BankAccount)
             .filter(
-                BankAccount.id ==
-                bank_account_id,
-
-                BankAccount.user_id ==
-                current_user.id
+                BankAccount.id == bank_account_id,
+                BankAccount.user_id == current_user.id
             )
             .first()
         )
 
         if bank is None:
-
             raise HTTPException(
                 status_code=404,
                 detail="Bank account not found"
@@ -296,29 +274,24 @@ def get_budgets(
     budget_query = (
         db.query(Budget)
         .filter(
-            Budget.user_id ==
-            current_user.id,
+            Budget.user_id == current_user.id,
 
-            Budget.month ==
-            month,
+            Budget.month == month,
 
-            Budget.year ==
-            year
+            Budget.year == year
         )
     )
 
+    # Optional bank filter for displaying budgets
     if bank_account_id is not None:
 
         budget_query = budget_query.filter(
-            Budget.bank_account_id ==
-            bank_account_id
+            Budget.bank_account_id == bank_account_id
         )
 
     budgets = (
         budget_query
-        .order_by(
-            Budget.category
-        )
+        .order_by(Budget.category)
         .all()
     )
 
@@ -326,46 +299,40 @@ def get_budgets(
 
     # ------------------------------------------------------
     # CALCULATE SPENDING
+    #
+    # IMPORTANT:
+    #
+    # Budget spending is based on:
+    #     1. Category
+    #     2. Month
+    #     3. Year
+    #
+    # NOT bank account.
+    #
+    # Therefore expenses from SBI + HDFC + ICICI etc.
+    # are all counted toward the same category budget.
     # ------------------------------------------------------
 
     for budget in budgets:
 
-        expense_query = (
+        spent = (
             db.query(
                 func.coalesce(
-                    func.sum(
-                        Expense.amount
-                    ),
+                    func.sum(Expense.amount),
                     0
                 )
             )
             .filter(
-                Expense.user_id ==
-                current_user.id,
+                Expense.user_id == current_user.id,
 
                 func.lower(
-                    func.trim(
-                        Expense.category
-                    )
-                )
-                ==
-                budget.category
-                .strip()
-                .lower(),
+                    func.trim(Expense.category)
+                ) == budget.category.strip().lower(),
 
-                Expense.date >=
-                start_date,
+                Expense.date >= start_date,
 
-                Expense.date <
-                end_date,
-
-                Expense.bank_account_id ==
-                budget.bank_account_id
+                Expense.date < end_date
             )
-        )
-
-        spent = (
-            expense_query
             .scalar()
             or 0
         )
@@ -377,8 +344,7 @@ def get_budgets(
         spent = float(spent)
 
         remaining = (
-            monthly_limit -
-            spent
+            monthly_limit - spent
         )
 
         if monthly_limit > 0:
@@ -420,6 +386,9 @@ def get_budgets(
                 "percentage_used":
                     percentage_used,
 
+                # Keep the bank account ID because
+                # the budget was created with a compulsory
+                # bank account.
                 "bank_account_id":
                     budget.bank_account_id,
             }
@@ -449,8 +418,7 @@ def get_budget(
     budget = (
         db.query(Budget)
         .filter(
-            Budget.id ==
-            budget_id,
+            Budget.id == budget_id,
 
             Budget.user_id ==
             current_user.id
@@ -491,8 +459,7 @@ def update_budget(
     budget = (
         db.query(Budget)
         .filter(
-            Budget.id ==
-            budget_id,
+            Budget.id == budget_id,
 
             Budget.user_id ==
             current_user.id
@@ -508,8 +475,7 @@ def update_budget(
         )
 
     category = (
-        budget_data.category
-        .strip()
+        budget_data.category.strip()
     )
 
     if not category:
@@ -537,8 +503,15 @@ def update_budget(
         )
 
     # ------------------------------------------------------
-    # CHECK BANK
+    # BANK ACCOUNT IS STILL COMPULSORY
     # ------------------------------------------------------
+
+    if budget_data.bank_account_id is None:
+
+        raise HTTPException(
+            status_code=400,
+            detail="Bank account is required for a budget"
+        )
 
     bank_account = (
         db.query(BankAccount)
@@ -561,6 +534,9 @@ def update_budget(
 
     # ------------------------------------------------------
     # CHECK DUPLICATE
+    #
+    # Category + month + year must be unique.
+    # Bank is NOT part of budget identity.
     # ------------------------------------------------------
 
     duplicate = (
@@ -569,25 +545,17 @@ def update_budget(
             Budget.user_id ==
             current_user.id,
 
-            Budget.id !=
-            budget_id,
+            Budget.id != budget_id,
 
             func.lower(
-                func.trim(
-                    Budget.category
-                )
-            )
-            ==
-            category.lower(),
+                func.trim(Budget.category)
+            ) == category.lower(),
 
             Budget.month ==
             budget_data.month,
 
             Budget.year ==
-            budget_data.year,
-
-            Budget.bank_account_id ==
-            budget_data.bank_account_id
+            budget_data.year
         )
         .first()
     )
@@ -598,7 +566,7 @@ def update_budget(
             status_code=400,
             detail=(
                 "Budget already exists for "
-                "this category and bank account"
+                "this category, month and year"
             )
         )
 
@@ -652,8 +620,7 @@ def delete_budget(
     budget = (
         db.query(Budget)
         .filter(
-            Budget.id ==
-            budget_id,
+            Budget.id == budget_id,
 
             Budget.user_id ==
             current_user.id

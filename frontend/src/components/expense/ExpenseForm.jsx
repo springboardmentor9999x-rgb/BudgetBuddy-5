@@ -24,11 +24,6 @@ function ExpenseForm({ refresh }) {
         try {
             const response = await api.get("/banks");
 
-            console.log(
-                "BANK API RESPONSE:",
-                response.data
-            );
-
             const bankList = Array.isArray(response.data)
                 ? response.data
                 : [];
@@ -45,21 +40,10 @@ function ExpenseForm({ refresh }) {
                     String(primaryBank.id)
                 );
             }
-
         } catch (error) {
             console.error(
                 "BANK LOAD ERROR:",
                 error
-            );
-
-            console.error(
-                "STATUS:",
-                error.response?.status
-            );
-
-            console.error(
-                "DATA:",
-                error.response?.data
             );
 
             toast.error(
@@ -121,26 +105,13 @@ function ExpenseForm({ refresh }) {
             setDate("");
 
             // Keep selected bank
-            // for the next transaction
-
             if (refresh) {
                 refresh();
             }
-
         } catch (error) {
             console.error(
                 "EXPENSE ERROR:",
                 error
-            );
-
-            console.error(
-                "STATUS:",
-                error.response?.status
-            );
-
-            console.error(
-                "DATA:",
-                error.response?.data
             );
 
             toast.error(
@@ -149,6 +120,16 @@ function ExpenseForm({ refresh }) {
             );
         }
     };
+
+    // ==========================================
+    // SELECTED BANK
+    // ==========================================
+
+    const selectedBank = banks.find(
+        (bank) =>
+            String(bank.id) ===
+            String(bankAccountId)
+    );
 
     return (
         <div
@@ -357,6 +338,33 @@ function ExpenseForm({ refresh }) {
                     ))}
                 </select>
 
+                {/* SELECTED ACCOUNT INFO */}
+
+                {selectedBank && (
+                    <div
+                        style={{
+                            gridColumn: "1 / -1",
+                            background: "#fef2f2",
+                            border:
+                                "1px solid #fecaca",
+                            padding: "12px 15px",
+                            borderRadius: "7px",
+                            color: "#991b1b",
+                            fontSize: "14px",
+                            fontWeight: "600",
+                        }}
+                    >
+                        💳 Expense will be deducted from:{" "}
+                        {selectedBank.bank_name}
+
+                        {selectedBank.account_number
+                            ? ` - ****${String(
+                                  selectedBank.account_number
+                              ).slice(-4)}`
+                            : ""}
+                    </div>
+                )}
+
                 {/* DESCRIPTION */}
 
                 <textarea
@@ -420,7 +428,6 @@ function ExpenseForm({ refresh }) {
                 >
                     Add Expense
                 </button>
-
             </form>
 
             {/* NO BANK MESSAGE */}

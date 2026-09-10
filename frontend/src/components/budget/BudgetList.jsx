@@ -5,7 +5,10 @@ import { FaEdit, FaTrash } from "react-icons/fa";
 
 function BudgetList({ refresh }) {
     const [budgets, setBudgets] = useState([]);
+    const [bankAccounts, setBankAccounts] = useState([]);
+
     const [loading, setLoading] = useState(false);
+    const [loadingBanks, setLoadingBanks] = useState(true);
 
     const currentMonth = new Date().getMonth() + 1;
     const currentYear = new Date().getFullYear();
@@ -19,6 +22,64 @@ function BudgetList({ refresh }) {
     const [editLimit, setEditLimit] = useState("");
     const [editMonth, setEditMonth] = useState(currentMonth);
     const [editYear, setEditYear] = useState(currentYear);
+
+    // ==========================================
+    // GET BANK ACCOUNTS
+    // ==========================================
+
+    const fetchBankAccounts = async () => {
+        try {
+            setLoadingBanks(true);
+
+            const response = await api.get("/banks");
+
+            setBankAccounts(response.data || []);
+        } catch (error) {
+            console.log(
+                "BANK ACCOUNT LOAD ERROR:",
+                error.response?.data || error
+            );
+
+            toast.error("Unable to load bank accounts");
+        } finally {
+            setLoadingBanks(false);
+        }
+    };
+
+    // ==========================================
+    // GET BANK NAME
+    // ==========================================
+
+    const getBankObject = (bankAccountId) => {
+        if (!bankAccountId) {
+            return null;
+        }
+
+        return bankAccounts.find(
+            (bank) =>
+                String(bank.id) === String(bankAccountId)
+        );
+    };
+
+    const getBankName = (bankAccountId) => {
+        const bank = getBankObject(bankAccountId);
+
+        if (!bank) {
+            return "Bank account not found";
+        }
+
+        return bank.bank_name;
+    };
+
+    const getLastFourDigits = (bankAccountId) => {
+        const bank = getBankObject(bankAccountId);
+
+        if (!bank) {
+            return "----";
+        }
+
+        return String(bank.account_number).slice(-4);
+    };
 
     // ==========================================
     // GET BUDGETS
@@ -35,25 +96,33 @@ function BudgetList({ refresh }) {
                 },
             });
 
-            setBudgets(response.data);
-
+            setBudgets(response.data || []);
         } catch (error) {
-            console.log("BUDGET LIST ERROR:", error);
+            console.log(
+                "BUDGET LIST ERROR:",
+                error.response?.data || error
+            );
 
             toast.error(
                 error.response?.data?.detail ||
                 "Unable to load budgets"
             );
-
         } finally {
             setLoading(false);
         }
     };
 
+    // ==========================================
+    // LOAD DATA
+    // ==========================================
+
+    useEffect(() => {
+        fetchBankAccounts();
+    }, []);
+
     useEffect(() => {
         fetchBudgets();
     }, [refresh, month, year]);
-
 
     // ==========================================
     // DELETE BUDGET
@@ -71,12 +140,16 @@ function BudgetList({ refresh }) {
         try {
             await api.delete(`/budgets/${id}`);
 
-            toast.success("Budget deleted successfully");
+            toast.success(
+                "Budget deleted successfully"
+            );
 
             fetchBudgets();
-
         } catch (error) {
-            console.log("DELETE BUDGET ERROR:", error);
+            console.log(
+                "DELETE BUDGET ERROR:",
+                error.response?.data || error
+            );
 
             toast.error(
                 error.response?.data?.detail ||
@@ -84,7 +157,6 @@ function BudgetList({ refresh }) {
             );
         }
     };
-
 
     // ==========================================
     // OPEN EDIT
@@ -98,7 +170,6 @@ function BudgetList({ refresh }) {
         setEditMonth(budget.month);
         setEditYear(budget.year);
     };
-
 
     // ==========================================
     // UPDATE BUDGET
@@ -130,19 +201,21 @@ function BudgetList({ refresh }) {
                 }
             );
 
-            toast.success("Budget updated successfully");
+            toast.success(
+                "Budget updated successfully"
+            );
 
             setEditingBudget(null);
 
-            // If edited month/year is different,
-            // switch filter to that month automatically
             setMonth(Number(editMonth));
             setYear(Number(editYear));
 
             fetchBudgets();
-
         } catch (error) {
-            console.log("UPDATE BUDGET ERROR:", error);
+            console.log(
+                "UPDATE BUDGET ERROR:",
+                error.response?.data || error
+            );
 
             toast.error(
                 error.response?.data?.detail ||
@@ -150,7 +223,6 @@ function BudgetList({ refresh }) {
             );
         }
     };
-
 
     // ==========================================
     // GET PROGRESS COLOR
@@ -167,7 +239,6 @@ function BudgetList({ refresh }) {
 
         return "#16a34a";
     };
-
 
     // ==========================================
     // MONTH NAME
@@ -192,6 +263,9 @@ function BudgetList({ refresh }) {
         return months[Number(monthNumber) - 1];
     };
 
+    // ==========================================
+    // RENDER
+    // ==========================================
 
     return (
         <div
@@ -231,7 +305,6 @@ function BudgetList({ refresh }) {
                     </p>
                 </div>
 
-
                 {/* MONTH AND YEAR FILTER */}
 
                 <div
@@ -243,7 +316,7 @@ function BudgetList({ refresh }) {
                     <select
                         value={month}
                         onChange={(e) =>
-                            setMonth(e.target.value)
+                            setMonth(Number(e.target.value))
                         }
                         style={{
                             padding: "10px",
@@ -269,7 +342,7 @@ function BudgetList({ refresh }) {
                         type="number"
                         value={year}
                         onChange={(e) =>
-                            setYear(e.target.value)
+                            setYear(Number(e.target.value))
                         }
                         min="2020"
                         max="2100"
@@ -283,12 +356,11 @@ function BudgetList({ refresh }) {
                 </div>
             </div>
 
-
             {/* ================================= */}
             {/* LOADING */}
             {/* ================================= */}
 
-            {loading ? (
+            {loading || loadingBanks ? (
                 <div
                     style={{
                         background: "white",
@@ -345,15 +417,23 @@ function BudgetList({ refresh }) {
                     }}
                 >
                     {budgets.map((budget) => {
-
                         const percentage = Math.min(
-                            Number(budget.percentage_used || 0),
+                            Number(
+                                budget.percentage_used || 0
+                            ),
                             100
                         );
 
                         const progressColor =
                             getProgressColor(
-                                Number(budget.percentage_used || 0)
+                                Number(
+                                    budget.percentage_used || 0
+                                )
+                            );
+
+                        const bank =
+                            getBankObject(
+                                budget.bank_account_id
                             );
 
                         return (
@@ -402,8 +482,79 @@ function BudgetList({ refresh }) {
                                     </span>
                                 </div>
 
+                                {/* BANK ACCOUNT */}
 
-                                {/* LIMIT */}
+                                <div
+                                    style={{
+                                        marginTop: "15px",
+                                        padding: "12px",
+                                        background: "#f8fafc",
+                                        borderRadius: "8px",
+                                        border:
+                                            "1px solid #e2e8f0",
+                                    }}
+                                >
+                                    <div
+                                        style={{
+                                            fontSize: "13px",
+                                            color: "#64748b",
+                                            marginBottom: "4px",
+                                        }}
+                                    >
+                                        Bank Account
+                                    </div>
+
+                                    {bank ? (
+                                        <div>
+                                            <strong
+                                                style={{
+                                                    color: "#1e293b",
+                                                }}
+                                            >
+                                                {bank.bank_name}
+                                            </strong>
+
+                                            <div
+                                                style={{
+                                                    marginTop: "3px",
+                                                    fontSize: "13px",
+                                                    color: "#64748b",
+                                                }}
+                                            >
+                                                ****
+                                                {String(
+                                                    bank.account_number
+                                                ).slice(-4)}
+
+                                                {bank.is_primary && (
+                                                    <span
+                                                        style={{
+                                                            marginLeft:
+                                                                "8px",
+                                                            color:
+                                                                "#16a34a",
+                                                            fontWeight:
+                                                                "bold",
+                                                        }}
+                                                    >
+                                                        • Primary
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <span
+                                            style={{
+                                                color: "#dc2626",
+                                                fontSize: "13px",
+                                            }}
+                                        >
+                                            Bank account not linked
+                                        </span>
+                                    )}
+                                </div>
+
+                                {/* LIMIT / SPENT */}
 
                                 <div
                                     style={{
@@ -432,14 +583,14 @@ function BudgetList({ refresh }) {
                                         </strong>
                                     </div>
 
-
                                     {/* PROGRESS BAR */}
 
                                     <div
                                         style={{
                                             width: "100%",
                                             height: "12px",
-                                            background: "#e5e7eb",
+                                            background:
+                                                "#e5e7eb",
                                             borderRadius: "10px",
                                             overflow: "hidden",
                                         }}
@@ -457,7 +608,6 @@ function BudgetList({ refresh }) {
                                         />
                                     </div>
 
-
                                     <div
                                         style={{
                                             display: "flex",
@@ -470,7 +620,8 @@ function BudgetList({ refresh }) {
                                     >
                                         <span>
                                             {Number(
-                                                budget.percentage_used || 0
+                                                budget.percentage_used ||
+                                                0
                                             ).toFixed(2)}
                                             % used
                                         </span>
@@ -485,7 +636,6 @@ function BudgetList({ refresh }) {
                                         </span>
                                     </div>
                                 </div>
-
 
                                 {/* DETAILS */}
 
@@ -543,7 +693,6 @@ function BudgetList({ refresh }) {
                                     </p>
                                 </div>
 
-
                                 {/* BUTTONS */}
 
                                 <div
@@ -586,13 +735,11 @@ function BudgetList({ refresh }) {
                                         <FaTrash /> Delete
                                     </button>
                                 </div>
-
                             </div>
                         );
                     })}
                 </div>
             )}
-
 
             {/* ================================= */}
             {/* EDIT MODAL */}
@@ -631,9 +778,10 @@ function BudgetList({ refresh }) {
                             Edit Budget
                         </h2>
 
-                        <form
-                            onSubmit={updateBudget}
-                        >
+                        <form onSubmit={updateBudget}>
+
+                            {/* CATEGORY */}
+
                             <label>
                                 Category
                             </label>
@@ -659,6 +807,7 @@ function BudgetList({ refresh }) {
                                 }}
                             />
 
+                            {/* LIMIT */}
 
                             <label>
                                 Monthly Limit
@@ -686,6 +835,7 @@ function BudgetList({ refresh }) {
                                 }}
                             />
 
+                            {/* MONTH */}
 
                             <label>
                                 Month
@@ -695,7 +845,9 @@ function BudgetList({ refresh }) {
                                 value={editMonth}
                                 onChange={(e) =>
                                     setEditMonth(
-                                        e.target.value
+                                        Number(
+                                            e.target.value
+                                        )
                                     )
                                 }
                                 style={{
@@ -708,20 +860,45 @@ function BudgetList({ refresh }) {
                                     borderRadius: "6px",
                                 }}
                             >
-                                <option value="1">January</option>
-                                <option value="2">February</option>
-                                <option value="3">March</option>
-                                <option value="4">April</option>
-                                <option value="5">May</option>
-                                <option value="6">June</option>
-                                <option value="7">July</option>
-                                <option value="8">August</option>
-                                <option value="9">September</option>
-                                <option value="10">October</option>
-                                <option value="11">November</option>
-                                <option value="12">December</option>
+                                <option value="1">
+                                    January
+                                </option>
+                                <option value="2">
+                                    February
+                                </option>
+                                <option value="3">
+                                    March
+                                </option>
+                                <option value="4">
+                                    April
+                                </option>
+                                <option value="5">
+                                    May
+                                </option>
+                                <option value="6">
+                                    June
+                                </option>
+                                <option value="7">
+                                    July
+                                </option>
+                                <option value="8">
+                                    August
+                                </option>
+                                <option value="9">
+                                    September
+                                </option>
+                                <option value="10">
+                                    October
+                                </option>
+                                <option value="11">
+                                    November
+                                </option>
+                                <option value="12">
+                                    December
+                                </option>
                             </select>
 
+                            {/* YEAR */}
 
                             <label>
                                 Year
@@ -732,7 +909,9 @@ function BudgetList({ refresh }) {
                                 value={editYear}
                                 onChange={(e) =>
                                     setEditYear(
-                                        e.target.value
+                                        Number(
+                                            e.target.value
+                                        )
                                     )
                                 }
                                 min="2020"
@@ -750,6 +929,7 @@ function BudgetList({ refresh }) {
                                 }}
                             />
 
+                            {/* BUTTONS */}
 
                             <button
                                 type="submit"
@@ -782,12 +962,10 @@ function BudgetList({ refresh }) {
                             >
                                 Cancel
                             </button>
-
                         </form>
                     </div>
                 </div>
             )}
-
         </div>
     );
 }

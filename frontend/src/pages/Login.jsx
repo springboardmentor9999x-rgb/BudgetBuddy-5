@@ -29,7 +29,7 @@ function Login() {
 
             setLoading(true);
 
-            // Clear previous account token FIRST
+            // Clear previous account token
             localStorage.removeItem("token");
 
             const formData = new URLSearchParams();
@@ -61,7 +61,7 @@ function Login() {
                 throw new Error("Token was not returned");
             }
 
-            // Save NEW account token
+            // Save new account token
             localStorage.setItem(
                 "token",
                 token
@@ -71,14 +71,8 @@ function Login() {
 
             toast.success("Login successful");
 
-            // IMPORTANT:
-            // Every account goes to the SAME dashboard.
-            // Admin panel is available separately from Sidebar.
-
             setTimeout(() => {
-
                 window.location.href = "/dashboard";
-
             }, 500);
 
         } catch (error) {
@@ -88,13 +82,39 @@ function Login() {
                 error
             );
 
-            // Make sure failed login does not keep old account
+            // Remove token if login fails
             localStorage.removeItem("token");
 
-            toast.error(
-                error.response?.data?.detail ||
-                "Invalid username/email or password"
-            );
+            let errorMessage =
+                "Invalid username/email or password";
+
+            const detail = error.response?.data?.detail;
+
+            // FastAPI validation errors
+            if (Array.isArray(detail)) {
+
+                errorMessage =
+                    detail[0]?.msg ||
+                    "Invalid username/email or password";
+
+            }
+
+            // Normal FastAPI error
+            else if (typeof detail === "string") {
+
+                errorMessage = detail;
+
+            }
+
+            // Network/server error
+            else if (error.message === "Network Error") {
+
+                errorMessage =
+                    "Unable to connect to the server";
+
+            }
+
+            toast.error(errorMessage);
 
         } finally {
 

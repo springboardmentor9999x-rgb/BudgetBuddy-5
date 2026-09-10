@@ -20,21 +20,32 @@ function Register() {
     const [formData, setFormData] = useState({
         username: "",
         email: "",
+        phone: "",
         password: "",
         confirm_password: ""
     });
-
     // --------------------------------------------------
     // HANDLE INPUT CHANGE
     // --------------------------------------------------
 
     const handleChange = (e) => {
+        const { name, value } = e.target;
+
+        if (name === "phone") {
+            const phoneNumber = value.replace(/\D/g, "").slice(0, 10);
+
+            setFormData({
+                ...formData,
+                phone: phoneNumber
+            });
+
+            return;
+        }
 
         setFormData({
             ...formData,
-            [e.target.name]: e.target.value
+            [name]: value
         });
-
     };
 
     // --------------------------------------------------
@@ -111,6 +122,7 @@ function Register() {
 
         const username = formData.username.trim();
         const email = formData.email.trim().toLowerCase();
+        const phone = formData.phone.trim();
         const password = formData.password;
         const confirmPassword = formData.confirm_password;
 
@@ -149,7 +161,19 @@ function Register() {
             return;
 
         }
+        // --------------------------------------------------
+        // PHONE VALIDATION
+        // --------------------------------------------------
 
+        if (!phone) {
+            toast.error("Please enter your phone number");
+            return;
+        }
+
+        if (!/^\d{10}$/.test(phone)) {
+            toast.error("Please enter a valid 10-digit phone number");
+            return;
+        }
         // --------------------------------------------------
         // PASSWORD VALIDATION
         // --------------------------------------------------
@@ -236,11 +260,11 @@ function Register() {
 
                 username: username,
                 email: email,
+                phone: phone,
                 password: password,
                 confirm_password: confirmPassword
 
             });
-
             // --------------------------------------------------
             // SUCCESS
             // --------------------------------------------------
@@ -372,7 +396,26 @@ function Register() {
                             />
 
                         </div>
+                        {/* PHONE NUMBER */}
 
+                        <div className="form-group">
+
+                            <label>
+                                Phone Number
+                            </label>
+
+                            <input
+                                type="tel"
+                                name="phone"
+                                placeholder="Enter 10-digit phone number"
+                                value={formData.phone}
+                                onChange={handleChange}
+                                inputMode="numeric"
+                                maxLength={10}
+                                autoComplete="tel"
+                            />
+
+                        </div>
                         {/* PASSWORD */}
 
                         <div className="form-group">

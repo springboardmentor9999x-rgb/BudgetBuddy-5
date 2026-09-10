@@ -4,9 +4,7 @@ import { toast } from "react-toastify";
 import { FaEdit, FaTrash } from "react-icons/fa";
 import EditIncomeModal from "./EditIncomeModal";
 
-
 function IncomeList({ refresh }) {
-
     const [income, setIncome] = useState([]);
     const [filteredIncome, setFilteredIncome] = useState([]);
 
@@ -18,15 +16,12 @@ function IncomeList({ refresh }) {
     const [showModal, setShowModal] = useState(false);
     const [selectedIncome, setSelectedIncome] = useState(null);
 
-
     // ==========================================
     // LOAD BANK ACCOUNTS
     // ==========================================
 
     const fetchBanks = async () => {
-
         try {
-
             const response = await api.get("/banks");
 
             const bankList = Array.isArray(response.data)
@@ -36,27 +31,24 @@ function IncomeList({ refresh }) {
             setBanks(bankList);
 
         } catch (error) {
-
             console.log(
                 "BANK LOAD ERROR:",
                 error
             );
 
             toast.error(
+                error.response?.data?.detail ||
                 "Unable to load bank accounts"
             );
         }
     };
-
 
     // ==========================================
     // LOAD INCOME
     // ==========================================
 
     const fetchIncome = async () => {
-
         try {
-
             const token =
                 localStorage.getItem("token");
 
@@ -70,10 +62,13 @@ function IncomeList({ refresh }) {
                 }
             );
 
-            setIncome(response.data);
+            setIncome(
+                Array.isArray(response.data)
+                    ? response.data
+                    : []
+            );
 
         } catch (error) {
-
             console.log(
                 "INCOME LOAD ERROR:",
                 error
@@ -84,28 +79,22 @@ function IncomeList({ refresh }) {
                 "Unable to load income"
             );
         }
-
     };
-
 
     // ==========================================
     // INITIAL LOAD
     // ==========================================
 
     useEffect(() => {
-
         fetchIncome();
         fetchBanks();
-
     }, [refresh]);
-
 
     // ==========================================
     // FILTER INCOME
     // ==========================================
 
     useEffect(() => {
-
         const keyword =
             search.toLowerCase();
 
@@ -119,7 +108,6 @@ function IncomeList({ refresh }) {
                 selectedBank === "all" ||
                 String(item.bank_account_id) ===
                 String(selectedBank);
-
 
             // -------------------------------
             // SEARCH FILTER
@@ -139,7 +127,6 @@ function IncomeList({ refresh }) {
                 category.includes(keyword) ||
                 description.includes(keyword);
 
-
             return (
                 matchesBank &&
                 matchesSearch
@@ -154,22 +141,19 @@ function IncomeList({ refresh }) {
         selectedBank
     ]);
 
-
     // ==========================================
     // CHECK OPENING BALANCE
     // ==========================================
 
     const isOpeningBalance = (item) => {
-
         return (
             item.source ===
-                "Bank Account Opening Balance"
+            "Bank Account Opening Balance"
             ||
             item.category ===
-                "Opening Balance"
+            "Opening Balance"
         );
     };
-
 
     // ==========================================
     // DELETE INCOME
@@ -186,7 +170,6 @@ function IncomeList({ refresh }) {
         }
 
         try {
-
             const token =
                 localStorage.getItem("token");
 
@@ -207,7 +190,6 @@ function IncomeList({ refresh }) {
             fetchIncome();
 
         } catch (error) {
-
             console.log(
                 "DELETE INCOME ERROR:",
                 error
@@ -219,7 +201,6 @@ function IncomeList({ refresh }) {
             );
         }
     };
-
 
     // ==========================================
     // EDIT INCOME
@@ -239,9 +220,7 @@ function IncomeList({ refresh }) {
 
         setSelectedIncome(item);
         setShowModal(true);
-
     };
-
 
     // ==========================================
     // TOTAL INCOME
@@ -250,13 +229,12 @@ function IncomeList({ refresh }) {
     const totalIncome =
         filteredIncome.reduce(
             (sum, item) =>
-                sum + Number(item.amount),
+                sum + Number(item.amount || 0),
             0
         );
 
-
     // ==========================================
-    // GET SELECTED BANK NAME
+    // GET SELECTED BANK
     // ==========================================
 
     const selectedBankObject =
@@ -266,10 +244,53 @@ function IncomeList({ refresh }) {
                 String(selectedBank)
         );
 
+    // ==========================================
+    // GET BANK NAME
+    // ==========================================
+
+    const getBankName = (bankId) => {
+
+        if (!bankId) {
+            return "No Account";
+        }
+
+        const bank = banks.find(
+            (item) =>
+                String(item.id) ===
+                String(bankId)
+        );
+
+        if (!bank) {
+            return "Unknown Account";
+        }
+
+        return (
+            bank.bank_name +
+            (
+                bank.account_number
+                    ? ` - ****${String(
+                          bank.account_number
+                      ).slice(-4)}`
+                    : ""
+            )
+        );
+    };
+
+    // ==========================================
+    // GET BANK OBJECT FOR DISPLAY
+    // ==========================================
+
+    const getBankObject = (bankId) => {
+
+        return banks.find(
+            (bank) =>
+                String(bank.id) ===
+                String(bankId)
+        );
+    };
 
     return (
         <>
-
             {/* =====================================
                 BANK FILTER
             ====================================== */}
@@ -284,7 +305,6 @@ function IncomeList({ refresh }) {
                         "0 2px 8px rgba(0,0,0,0.08)",
                 }}
             >
-
                 <label
                     style={{
                         display: "block",
@@ -308,21 +328,19 @@ function IncomeList({ refresh }) {
                         borderRadius: "7px",
                         border:
                             "1px solid #ccc",
-                        boxSizing: "border-box",
+                        boxSizing:
+                            "border-box",
                     }}
                 >
-
                     <option value="all">
                         All Accounts
                     </option>
 
                     {banks.map((bank) => (
-
                         <option
                             key={bank.id}
                             value={bank.id}
                         >
-
                             {bank.bank_name}
 
                             {bank.account_number
@@ -334,15 +352,10 @@ function IncomeList({ refresh }) {
                             {bank.is_primary
                                 ? " (Primary)"
                                 : ""}
-
                         </option>
-
                     ))}
-
                 </select>
-
             </div>
-
 
             {/* =====================================
                 SELECTED BANK TITLE
@@ -353,15 +366,14 @@ function IncomeList({ refresh }) {
 
                     <h3
                         style={{
-                            marginBottom: "15px",
+                            marginBottom:
+                                "15px",
                         }}
                     >
                         Income History -{" "}
                         {selectedBankObject.bank_name}
                     </h3>
-
                 )}
-
 
             {/* =====================================
                 TOTAL INCOME
@@ -378,14 +390,11 @@ function IncomeList({ refresh }) {
                     fontWeight: "bold",
                 }}
             >
-
                 Total Income : ₹{" "}
                 {totalIncome.toLocaleString(
                     "en-IN"
                 )}
-
             </div>
-
 
             {/* =====================================
                 SEARCH
@@ -405,10 +414,10 @@ function IncomeList({ refresh }) {
                     borderRadius: "8px",
                     border:
                         "1px solid #ccc",
-                    boxSizing: "border-box",
+                    boxSizing:
+                        "border-box",
                 }}
             />
-
 
             {/* =====================================
                 TABLE
@@ -419,7 +428,6 @@ function IncomeList({ refresh }) {
                     overflowX: "auto",
                 }}
             >
-
                 <table
                     style={{
                         width: "100%",
@@ -428,9 +436,7 @@ function IncomeList({ refresh }) {
                         background: "white",
                     }}
                 >
-
                     <thead>
-
                         <tr
                             style={{
                                 background:
@@ -438,48 +444,77 @@ function IncomeList({ refresh }) {
                                 color: "white",
                             }}
                         >
-
                             <th
                                 style={{
-                                    padding: "12px",
+                                    padding:
+                                        "12px",
                                 }}
                             >
                                 Source
                             </th>
 
-                            <th>
+                            <th
+                                style={{
+                                    padding:
+                                        "12px",
+                                }}
+                            >
                                 Category
                             </th>
 
-                            <th>
+                            <th
+                                style={{
+                                    padding:
+                                        "12px",
+                                }}
+                            >
+                                Bank Account
+                            </th>
+
+                            <th
+                                style={{
+                                    padding:
+                                        "12px",
+                                }}
+                            >
                                 Amount
                             </th>
 
-                            <th>
+                            <th
+                                style={{
+                                    padding:
+                                        "12px",
+                                }}
+                            >
                                 Description
                             </th>
 
-                            <th>
+                            <th
+                                style={{
+                                    padding:
+                                        "12px",
+                                }}
+                            >
                                 Date
                             </th>
 
-                            <th>
+                            <th
+                                style={{
+                                    padding:
+                                        "12px",
+                                }}
+                            >
                                 Action
                             </th>
-
                         </tr>
-
                     </thead>
 
-
                     <tbody>
-
                         {filteredIncome.length === 0 ? (
 
                             <tr>
-
                                 <td
-                                    colSpan="6"
+                                    colSpan="7"
                                     style={{
                                         padding:
                                             "30px",
@@ -492,7 +527,6 @@ function IncomeList({ refresh }) {
                                     No income found
                                     for this bank.
                                 </td>
-
                             </tr>
 
                         ) : (
@@ -505,8 +539,12 @@ function IncomeList({ refresh }) {
                                             item
                                         );
 
-                                    return (
+                                    const bank =
+                                        getBankObject(
+                                            item.bank_account_id
+                                        );
 
+                                    return (
                                         <tr
                                             key={item.id}
                                             style={{
@@ -516,6 +554,8 @@ function IncomeList({ refresh }) {
                                                     "1px solid #ddd",
                                             }}
                                         >
+
+                                            {/* SOURCE */}
 
                                             <td
                                                 style={{
@@ -527,56 +567,118 @@ function IncomeList({ refresh }) {
                                                             : "normal",
                                                 }}
                                             >
-
                                                 {item.source}
-
                                             </td>
 
-
-                                            <td>
-
-                                                {item.category}
-
-                                            </td>
-
+                                            {/* CATEGORY */}
 
                                             <td
                                                 style={{
+                                                    padding:
+                                                        "12px",
+                                                }}
+                                            >
+                                                {item.category}
+                                            </td>
+
+                                            {/* BANK ACCOUNT */}
+
+                                            <td
+                                                style={{
+                                                    padding:
+                                                        "12px",
+                                                    fontWeight:
+                                                        "600",
+                                                }}
+                                            >
+                                                {bank ? (
+                                                    <div>
+                                                        <div>
+                                                            {bank.bank_name}
+                                                        </div>
+
+                                                        {bank.account_number && (
+                                                            <div
+                                                                style={{
+                                                                    fontSize:
+                                                                        "12px",
+                                                                    color:
+                                                                        "#64748b",
+                                                                    marginTop:
+                                                                        "3px",
+                                                                }}
+                                                            >
+                                                                ****
+                                                                {String(
+                                                                    bank.account_number
+                                                                ).slice(
+                                                                    -4
+                                                                )}
+
+                                                                {bank.is_primary &&
+                                                                    " • Primary"}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    getBankName(
+                                                        item.bank_account_id
+                                                    )
+                                                )}
+                                            </td>
+
+                                            {/* AMOUNT */}
+
+                                            <td
+                                                style={{
+                                                    padding:
+                                                        "12px",
                                                     color:
                                                         "#16a34a",
                                                     fontWeight:
                                                         "600",
                                                 }}
                                             >
-
                                                 ₹{" "}
-
                                                 {Number(
-                                                    item.amount
+                                                    item.amount ||
+                                                    0
                                                 ).toLocaleString(
                                                     "en-IN"
                                                 )}
-
                                             </td>
 
+                                            {/* DESCRIPTION */}
 
-                                            <td>
-
+                                            <td
+                                                style={{
+                                                    padding:
+                                                        "12px",
+                                                }}
+                                            >
                                                 {item.description ||
                                                     "-"}
-
                                             </td>
 
+                                            {/* DATE */}
 
-                                            <td>
-
+                                            <td
+                                                style={{
+                                                    padding:
+                                                        "12px",
+                                                }}
+                                            >
                                                 {item.date}
-
                                             </td>
 
+                                            {/* ACTION */}
 
-                                            <td>
-
+                                            <td
+                                                style={{
+                                                    padding:
+                                                        "12px",
+                                                }}
+                                            >
                                                 {openingBalance ? (
 
                                                     <span
@@ -603,7 +705,6 @@ function IncomeList({ refresh }) {
                                                 ) : (
 
                                                     <>
-
                                                         <button
                                                             onClick={() =>
                                                                 editIncome(
@@ -628,7 +729,6 @@ function IncomeList({ refresh }) {
                                                             <FaEdit />
                                                         </button>
 
-
                                                         <button
                                                             onClick={() =>
                                                                 deleteIncome(
@@ -652,28 +752,18 @@ function IncomeList({ refresh }) {
                                                         >
                                                             <FaTrash />
                                                         </button>
-
                                                     </>
-
                                                 )}
-
                                             </td>
 
                                         </tr>
-
                                     );
-
                                 }
                             )
-
                         )}
-
                     </tbody>
-
                 </table>
-
             </div>
-
 
             {/* =====================================
                 EDIT MODAL
@@ -687,10 +777,8 @@ function IncomeList({ refresh }) {
                 }
                 refresh={fetchIncome}
             />
-
         </>
     );
 }
-
 
 export default IncomeList;

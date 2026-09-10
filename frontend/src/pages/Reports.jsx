@@ -1362,7 +1362,6 @@ function Reports() {
 
         <div
             style={{
-                display: "flex",
                 minHeight: "100vh",
                 background: "#f5f7fb",
             }}
@@ -1371,9 +1370,10 @@ function Reports() {
             <Sidebar />
 
 
-            <div
+            <main
                 style={{
-                    flex: 1,
+                    marginLeft: "250px",
+                    minHeight: "100vh",
                     padding: "20px",
                     boxSizing: "border-box",
                 }}
@@ -2007,7 +2007,7 @@ function Reports() {
 
                 </div>
 
-            </div>
+            </main>
 
 
             {/* ======================================================

@@ -29,9 +29,19 @@ router = APIRouter(
 )
 
 
+# ==========================================================
+# VALIDATE DESCRIPTION
+# ==========================================================
+
 def validate_description(description):
+
     if description is None or not str(description).strip():
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Expense description is required")
+
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Expense description is required"
+        )
+
     return str(description).strip()
 
 
@@ -54,10 +64,19 @@ def create_expense(
     # VALIDATE DESCRIPTION
     # ======================================================
 
-    expense.description = validate_description(expense.description)
+    expense.description = validate_description(
+        expense.description
+    )
+
 
     # ======================================================
     # CHECK BANK ACCOUNT
+    #
+    # Bank account is used ONLY for:
+    #     - Checking available balance
+    #     - Deducting money from that account
+    #
+    # It does NOT decide which budget is affected.
     # ======================================================
 
     bank = None
@@ -80,9 +99,13 @@ def create_expense(
                 detail="Bank account not found"
             )
 
-        # Check bank balance
+        # --------------------------------------------------
+        # CHECK BANK BALANCE
+        # --------------------------------------------------
 
-        if float(bank.current_balance) < float(expense.amount):
+        if float(bank.current_balance) < float(
+            expense.amount
+        ):
 
             raise HTTPException(
                 status_code=400,
@@ -102,7 +125,23 @@ def create_expense(
     # FIND MATCHING BUDGET
     #
     # IMPORTANT:
-    # Budget MUST belong to the SAME BANK ACCOUNT
+    #
+    # Budget is matched ONLY using:
+    #     1. Category
+    #     2. Month
+    #     3. Year
+    #
+    # Bank account is NOT used here.
+    #
+    # Example:
+    #
+    # Food Budget = ₹5000
+    #
+    # Food ₹1000 from SBI
+    # Food ₹500 from HDFC
+    # Food ₹700 from ICICI
+    #
+    # Budget spent = ₹2200
     # ======================================================
 
     budget = (
@@ -118,10 +157,7 @@ def create_expense(
 
             Budget.month == expense_month,
 
-            Budget.year == expense_year,
-
-            Budget.bank_account_id ==
-            expense.bank_account_id
+            Budget.year == expense_year
         )
         .first()
     )
@@ -158,7 +194,11 @@ def create_expense(
     # CALCULATE SPENDING BEFORE THIS EXPENSE
     #
     # IMPORTANT:
-    # ONLY expenses from the SAME BANK ACCOUNT
+    #
+    # DO NOT FILTER BY BANK ACCOUNT.
+    #
+    # All expenses belonging to this category
+    # in this month/year are counted.
     # ======================================================
 
     spent_before = (
@@ -181,10 +221,7 @@ def create_expense(
 
             Expense.date >= start_date,
 
-            Expense.date < end_date,
-
-            Expense.bank_account_id ==
-            expense.bank_account_id
+            Expense.date < end_date
         )
         .scalar()
     )
@@ -194,9 +231,19 @@ def create_expense(
         spent_before or 0
     )
 
+
+    # ======================================================
+    # CURRENT EXPENSE AMOUNT
+    # ======================================================
+
     expense_amount = float(
         expense.amount
     )
+
+
+    # ======================================================
+    # TOTAL SPENDING AFTER THIS EXPENSE
+    # ======================================================
 
     spent_after = (
         spent_before +
@@ -233,6 +280,18 @@ def create_expense(
 
     # ======================================================
     # SUBTRACT MONEY FROM BANK
+    #
+    # THIS IS COMPLETELY SEPARATE FROM BUDGET.
+    #
+    # Example:
+    #
+    # Food expense ₹1000 from SBI
+    #     ↓
+    # SBI balance -₹1000
+    #
+    # Food budget
+    #     ↓
+    # Food spent +₹1000
     # ======================================================
 
     if bank is not None:
@@ -273,6 +332,10 @@ def create_expense(
 
     # ======================================================
     # BUDGET NOTIFICATIONS
+    #
+    # Since spent_before now includes ALL bank accounts,
+    # these notifications also represent the complete
+    # category spending.
     # ======================================================
 
     if budget is not None:
@@ -379,7 +442,8 @@ def create_expense(
                     user_id=current_user.id,
 
                     message=(
-                        f"Budget warning! 100 % Budget limit reached for "
+                        f"Budget warning! 100% "
+                        f"budget limit reached for "
                         f"{budget.category}! "
                         f"You spent ₹{spent_after:.2f} "
                         f"out of ₹{monthly_limit:.2f}."
@@ -526,7 +590,12 @@ def update_expense(
     # VALIDATE DESCRIPTION
     # ======================================================
 
-    expense_data.description = validate_description(expense_data.description)
+    expense_data.description = (
+        validate_description(
+            expense_data.description
+        )
+    )
+
 
     # ======================================================
     # FIND EXPENSE
@@ -704,8 +773,7 @@ def update_expense(
 def delete_expense(
     expense_id: int,
 
-    db: Session =
-        Depends(get_db),
+    db: Session = Depends(get_db),
 
     current_user: User =
         Depends(get_current_user)

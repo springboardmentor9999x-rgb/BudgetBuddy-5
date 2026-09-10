@@ -1,12 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
+
 import {
     ResponsiveContainer,
     BarChart,
     Bar,
-    LineChart,
-    Line,
     PieChart,
     Pie,
     Cell,
@@ -25,49 +24,44 @@ import api from "../services/api";
 function AdminDashboard() {
     const navigate = useNavigate();
 
-    const [data, setData] = useState(null);
-    const [selectedUserId, setSelectedUserId] = useState("");
+    const [analytics, setAnalytics] = useState(null);
+    const [systemDetails, setSystemDetails] = useState(null);
+    const [users, setUsers] = useState([]);
+
     const [loading, setLoading] = useState(true);
+
+    // ==========================================================
+    // LOAD ADMIN DASHBOARD
+    // ==========================================================
 
     const loadDashboard = async () => {
         try {
             setLoading(true);
 
-            const response = await api.get(
-                "/admin/analytics/full"
-            );
+            const [analyticsResponse, systemResponse, usersResponse] =
+                await Promise.all([
+                    api.get("/admin/analytics"),
+                    api.get("/admin/system-details"),
+                    api.get("/admin/users"),
+                ]);
 
-            setData(response.data);
+            setAnalytics(analyticsResponse.data);
+            setSystemDetails(systemResponse.data);
 
-            if (
-                !selectedUserId &&
-                response.data?.user_analytics?.length
-            ) {
-                const firstNonAdmin =
-                    response.data.user_analytics.find(
-                        (item) => item.role !== "admin"
-                    );
-
-                setSelectedUserId(
-                    String(
-                        firstNonAdmin?.id ??
-                        response.data.user_analytics[0].id
-                    )
-                );
+            if (Array.isArray(usersResponse.data)) {
+                setUsers(usersResponse.data);
+            } else {
+                setUsers([]);
             }
+
         } catch (error) {
-            console.error(
-                "Admin dashboard error:",
-                error
-            );
+            console.error("Admin dashboard error:", error);
 
             if (
                 error.response?.status === 401 ||
                 error.response?.status === 403
             ) {
-                toast.error(
-                    "Admin access required"
-                );
+                toast.error("Admin access required");
                 navigate("/dashboard");
                 return;
             }
@@ -76,6 +70,7 @@ function AdminDashboard() {
                 error.response?.data?.detail ||
                 "Unable to load admin dashboard"
             );
+
         } finally {
             setLoading(false);
         }
@@ -87,1318 +82,795 @@ function AdminDashboard() {
     }, []);
 
 
-    const selectedUser = useMemo(() => {
-        if (!data?.user_analytics) {
-            return null;
-        }
-
-        return (
-            data.user_analytics.find(
-                (item) =>
-                    String(item.id) ===
-                    String(selectedUserId)
-            ) || null
-        );
-    }, [data, selectedUserId]);
-
+    // ==========================================================
+    // LOADING
+    // ==========================================================
 
     if (loading) {
         return (
             <div
                 style={{
-                    padding: "40px",
-                    textAlign: "center",
-                    fontSize: "20px",
+                    minHeight: "100vh",
+                    background: "#f5f7fb",
                 }}
             >
-                Loading Admin Dashboard...
+                <Sidebar />
+
+                <main
+                    style={{
+                        marginLeft: "250px",
+                        minHeight: "100vh",
+                        padding: "20px",
+                        boxSizing: "border-box",
+                    }}
+                >
+                    <Navbar />
+
+                    <div
+                        style={{
+                            padding: "60px",
+                            textAlign: "center",
+                            color: "#666",
+                        }}
+                    >
+                        Loading admin dashboard...
+                    </div>
+                </main>
             </div>
         );
     }
 
 
-    if (!data) {
+    // ==========================================================
+    // SAFE DATA
+    // ==========================================================
+
+    const userData = analytics?.users || {};
+    const financialData = analytics?.financial || {};
+    const systemData = analytics?.system || {};
+    const percentageData = analytics?.percentages || {};
+
+    const applicationData =
+        systemDetails?.application || {};
+
+    const securityData =
+        systemDetails?.security || {};
+
+
+    // ==========================================================
+    // USER CHART
+    // ==========================================================
+
+    const userChartData = [
+        {
+            name: "Normal",
+            value: Number(userData.normal || 0),
+        },
+        {
+            name: "Premium",
+            value: Number(userData.premium || 0),
+        },
+        {
+            name: "Admins",
+            value: Number(userData.admins || 0),
+        },
+    ];
+
+
+    // ==========================================================
+    // FINANCIAL CHART
+    // ==========================================================
+
+    const financialChartData = [
+        {
+            name: "Income",
+            amount: Number(financialData.total_income || 0),
+        },
+        {
+            name: "Expense",
+            amount: Number(financialData.total_expense || 0),
+        },
+        {
+            name: "Saved",
+            amount: Number(financialData.total_saved || 0),
+        },
+    ];
+
+
+    // ==========================================================
+    // FORMAT MONEY
+    // ==========================================================
+
+    const formatMoney = (value) => {
+        return `₹ ${Number(value || 0).toLocaleString("en-IN")}`;
+    };
+
+
+    // ==========================================================
+    // CARD
+    // ==========================================================
+
+    const StatCard = ({
+        title,
+        value,
+        subtitle,
+        icon,
+    }) => {
         return (
             <div
                 style={{
-                    padding: "40px",
-                    textAlign: "center",
+                    background: "white",
+                    borderRadius: "12px",
+                    padding: "20px",
+                    boxShadow:
+                        "0 2px 10px rgba(0,0,0,0.08)",
+                    flex: "1",
+                    minWidth: "180px",
                 }}
             >
-                No dashboard data available.
+                <div
+                    style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                    }}
+                >
+                    <div>
+                        <p
+                            style={{
+                                margin: 0,
+                                color: "#777",
+                                fontSize: "14px",
+                            }}
+                        >
+                            {title}
+                        </p>
+
+                        <h2
+                            style={{
+                                margin: "8px 0 5px",
+                                fontSize: "25px",
+                            }}
+                        >
+                            {value}
+                        </h2>
+
+                        {subtitle && (
+                            <p
+                                style={{
+                                    margin: 0,
+                                    color: "#999",
+                                    fontSize: "12px",
+                                }}
+                            >
+                                {subtitle}
+                            </p>
+                        )}
+                    </div>
+
+                    <div
+                        style={{
+                            width: "45px",
+                            height: "45px",
+                            borderRadius: "10px",
+                            background: "#eff6ff",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: "22px",
+                        }}
+                    >
+                        {icon}
+                    </div>
+                </div>
             </div>
         );
-    }
-
-
-    const financial = data.financial || {};
-    const users = data.users || {};
-    const system = data.system || {};
-    const monthly = data.monthly || [];
-    const categories = data.expense_categories || [];
-    const userAnalytics =
-        data.user_analytics || [];
-
-
-    const expenseColors = [
-        "#ef4444",
-        "#f97316",
-        "#eab308",
-        "#22c55e",
-        "#06b6d4",
-        "#3b82f6",
-        "#6366f1",
-        "#8b5cf6",
-        "#ec4899",
-        "#14b8a6",
-    ];
+    };
 
 
     return (
         <div
             style={{
-                display: "flex",
                 minHeight: "100vh",
                 background: "#f5f7fb",
             }}
         >
             <Sidebar />
 
-            <div
+            <main
                 style={{
-                    flex: 1,
+                    marginLeft: "250px",
+                    minHeight: "100vh",
                     padding: "20px",
                     boxSizing: "border-box",
-                    overflowX: "hidden",
                 }}
             >
                 <Navbar />
 
-                {/* ================================================= */}
-                {/* HEADER */}
-                {/* ================================================= */}
+                {/* ==================================================
+                    HEADER
+                ================================================== */}
+
+                <div
+                    style={{
+                        marginTop: "20px",
+                        marginBottom: "25px",
+                    }}
+                >
+                    <h1
+                        style={{
+                            margin: 0,
+                        }}
+                    >
+                        Admin Dashboard
+                    </h1>
+
+                    <p
+                        style={{
+                            color: "#777",
+                            marginTop: "6px",
+                        }}
+                    >
+                        Monitor BudgetBuddy users, finances and system activity.
+                    </p>
+                </div>
+
+
+                {/* ==================================================
+                    STAT CARDS
+                ================================================== */}
 
                 <div
                     style={{
                         display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        gap: "15px",
-                        marginBottom: "25px",
+                        gap: "20px",
                         flexWrap: "wrap",
+                        marginBottom: "25px",
                     }}
                 >
-                    <div>
-                        <h1
-                            style={{
-                                margin: 0,
-                                color: "#1e293b",
-                            }}
-                        >
-                            🛡️ Admin Dashboard
-                        </h1>
-
-                        <p
-                            style={{
-                                marginTop: "8px",
-                                marginBottom: 0,
-                                color: "#64748b",
-                            }}
-                        >
-                            Complete BudgetBuddy system-wide
-                            financial overview.
-                        </p>
-                    </div>
-
-                    <div
-                        style={{
-                            display: "flex",
-                            gap: "10px",
-                            flexWrap: "wrap",
-                        }}
-                    >
-                        <button
-                            onClick={() =>
-                                navigate("/system-analytics")
-                            }
-                            style={secondaryButton}
-                        >
-                            📊 System Analytics
-                        </button>
-
-                        <button
-                            onClick={() =>
-                                navigate("/user-management")
-                            }
-                            style={primaryButton}
-                        >
-                            👥 User Management
-                        </button>
-                    </div>
-                </div>
-
-
-                {/* ================================================= */}
-                {/* USER OVERVIEW */}
-                {/* ================================================= */}
-
-                <h2 style={sectionTitle}>
-                    👥 User Overview
-                </h2>
-
-                <div style={cardGrid}>
                     <StatCard
                         title="Total Users"
-                        value={users.total}
+                        value={userData.total || 0}
+                        subtitle={`${userData.verified || 0} verified`}
                         icon="👥"
                     />
 
                     <StatCard
-                        title="Normal Users"
-                        value={users.normal}
-                        icon="👤"
-                    />
-
-                    <StatCard
                         title="Premium Users"
-                        value={users.premium}
+                        value={userData.premium || 0}
+                        subtitle={`${percentageData.premium_users || 0}% of users`}
                         icon="⭐"
                     />
 
                     <StatCard
-                        title="Administrators"
-                        value={users.admins}
-                        icon="🛡️"
-                    />
-                </div>
-
-
-                {/* ================================================= */}
-                {/* COMBINED FINANCIAL OVERVIEW */}
-                {/* ================================================= */}
-
-                <h2 style={sectionTitle}>
-                    💰 Combined System Financial Overview
-                </h2>
-
-                <div style={cardGrid}>
-                    <MoneyCard
                         title="Total Income"
-                        value={financial.total_income}
-                        icon="💵"
-                        valueColor="#16a34a"
-                    />
-
-                    <MoneyCard
-                        title="Total Expenses"
-                        value={financial.total_expense}
-                        icon="💸"
-                        valueColor="#dc2626"
-                    />
-
-                    <MoneyCard
-                        title="Total Savings"
-                        value={financial.total_saved}
-                        icon="🎯"
-                        valueColor="#a855f7"
-                    />
-
-                    <MoneyCard
-                        title="Net Balance"
-                        value={financial.net_balance}
+                        value={formatMoney(financialData.total_income)}
+                        subtitle="System total"
                         icon="💰"
                     />
 
-                    <MoneyCard
-                        title="Bank Balance"
-                        value={financial.total_bank_balance}
-                        icon="🏦"
+                    <StatCard
+                        title="Total Expense"
+                        value={formatMoney(financialData.total_expense)}
+                        subtitle="System total"
+                        icon="💸"
                     />
                 </div>
 
 
-                {/* ================================================= */}
-                {/* SYSTEM COUNTS */}
-                {/* ================================================= */}
+                {/* ==================================================
+                    SECOND ROW
+                ================================================== */}
 
-                <div style={cardGrid}>
+                <div
+                    style={{
+                        display: "flex",
+                        gap: "20px",
+                        flexWrap: "wrap",
+                        marginBottom: "25px",
+                    }}
+                >
                     <StatCard
-                        title="Bank Accounts"
-                        value={system.bank_accounts}
+                        title="Total Saved"
+                        value={formatMoney(financialData.total_saved)}
+                        subtitle="Savings transactions"
                         icon="🏦"
                     />
 
                     <StatCard
-                        title="Budgets"
-                        value={system.budgets}
+                        title="Net Balance"
+                        value={formatMoney(financialData.net_balance)}
+                        subtitle="Income - Expense"
                         icon="📊"
                     />
 
                     <StatCard
-                        title="Savings Goals"
-                        value={system.savings_goals}
-                        icon="🎯"
+                        title="Bank Accounts"
+                        value={systemData.bank_accounts || 0}
+                        subtitle="Across all users"
+                        icon="🏛️"
                     />
 
                     <StatCard
-                        title="Income Records"
-                        value={system.income_records}
-                        icon="💵"
-                    />
-
-                    <StatCard
-                        title="Expense Records"
-                        value={system.expense_records}
-                        icon="💸"
+                        title="Budgets"
+                        value={systemData.budgets || 0}
+                        subtitle="Created budgets"
+                        icon="📋"
                     />
                 </div>
 
 
-                {/* ================================================= */}
-                {/* MONTHLY SYSTEM TREND */}
-                {/* ================================================= */}
-
-                <div style={chartCard}>
-                    <h2 style={{ marginTop: 0 }}>
-                        📈 Monthly System Financial Trend
-                    </h2>
-
-                    <p style={chartDescription}>
-                        Combined income, expenses and savings
-                        from all BudgetBuddy users.
-                    </p>
-
-                    <div
-                        style={{
-                            width: "100%",
-                            height: "380px",
-                        }}
-                    >
-                        {monthly.length > 0 ? (
-                            <ResponsiveContainer>
-                                <LineChart data={monthly}>
-                                    <CartesianGrid
-                                        strokeDasharray="3 3"
-                                    />
-
-                                    <XAxis dataKey="label" />
-
-                                    <YAxis />
-
-                                    <Tooltip
-                                        formatter={(
-                                            value,
-                                            name
-                                        ) => [
-                                            `₹${Number(
-                                                value || 0
-                                            ).toLocaleString(
-                                                "en-IN"
-                                            )}`,
-                                            name,
-                                        ]}
-                                    />
-
-                                    <Legend />
-
-                                    <Line
-                                        type="monotone"
-                                        dataKey="income"
-                                        name="Income"
-                                        stroke="#16a34a"
-                                        strokeWidth={3}
-                                        dot={{ r: 4 }}
-                                    />
-
-                                    <Line
-                                        type="monotone"
-                                        dataKey="expense"
-                                        name="Expense"
-                                        stroke="#dc2626"
-                                        strokeWidth={3}
-                                        dot={{ r: 4 }}
-                                    />
-
-                                    <Line
-                                        type="monotone"
-                                        dataKey="savings"
-                                        name="Savings"
-                                        stroke="#a855f7"
-                                        strokeWidth={3}
-                                        dot={{ r: 4 }}
-                                    />
-                                </LineChart>
-                            </ResponsiveContainer>
-                        ) : (
-                            <EmptyChart />
-                        )}
-                    </div>
-                </div>
-
-
-                {/* ================================================= */}
-                {/* EXPENSE CATEGORY */}
-                {/* ================================================= */}
-
-                <div style={chartCard}>
-                    <h2 style={{ marginTop: 0 }}>
-                        🥧 Combined Expense Distribution
-                    </h2>
-
-                    <p style={chartDescription}>
-                        Expense categories across all users.
-                    </p>
-
-                    <div
-                        style={{
-                            width: "100%",
-                            height: "380px",
-                        }}
-                    >
-                        {categories.length > 0 ? (
-                            <ResponsiveContainer>
-                                <PieChart>
-                                    <Pie
-                                        data={categories}
-                                        dataKey="amount"
-                                        nameKey="category"
-                                        cx="50%"
-                                        cy="50%"
-                                        outerRadius={125}
-                                        label
-                                    >
-                                        {categories.map(
-                                            (entry, index) => (
-                                                <Cell
-                                                    key={
-                                                        `expense-${index}`
-                                                    }
-                                                    fill={
-                                                        expenseColors[
-                                                            index %
-                                                            expenseColors.length
-                                                        ]
-                                                    }
-                                                />
-                                            )
-                                        )}
-                                    </Pie>
-
-                                    <Tooltip
-                                        formatter={(
-                                            value
-                                        ) =>
-                                            `₹${Number(
-                                                value || 0
-                                            ).toLocaleString(
-                                                "en-IN"
-                                            )}`
-                                        }
-                                    />
-
-                                    <Legend />
-                                </PieChart>
-                            </ResponsiveContainer>
-                        ) : (
-                            <EmptyChart />
-                        )}
-                    </div>
-                </div>
-
-
-                {/* ================================================= */}
-                {/* SAVINGS GOALS */}
-                {/* ================================================= */}
-
-                <div style={chartCard}>
-                    <h2 style={{ marginTop: 0 }}>
-                        🎯 Combined Savings Goals
-                    </h2>
-
-                    <p style={chartDescription}>
-                        Savings targets and current savings
-                        from all users.
-                    </p>
-
-                    <div
-                        style={{
-                            width: "100%",
-                            height: "380px",
-                        }}
-                    >
-                        {data.savings_goals?.length > 0 ? (
-                            <ResponsiveContainer>
-                                <BarChart
-                                    data={data.savings_goals.map(
-                                        (goal) => ({
-                                            name:
-                                                `${goal.goal_name || "Goal"} (User ${goal.user_id})`,
-                                            target:
-                                                Number(
-                                                    goal.target_amount ||
-                                                    0
-                                                ),
-                                            saved:
-                                                Number(
-                                                    goal.current_amount ||
-                                                    0
-                                                ),
-                                        })
-                                    )}
-                                >
-                                    <CartesianGrid
-                                        strokeDasharray="3 3"
-                                    />
-
-                                    <XAxis
-                                        dataKey="name"
-                                    />
-
-                                    <YAxis />
-
-                                    <Tooltip
-                                        formatter={(
-                                            value,
-                                            name
-                                        ) => [
-                                            `₹${Number(
-                                                value || 0
-                                            ).toLocaleString(
-                                                "en-IN"
-                                            )}`,
-                                            name,
-                                        ]}
-                                    />
-
-                                    <Legend />
-
-                                    <Bar
-                                        dataKey="target"
-                                        name="Target"
-                                        fill="#ddd6fe"
-                                    />
-
-                                    <Bar
-                                        dataKey="saved"
-                                        name="Saved"
-                                        fill="#a855f7"
-                                    />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        ) : (
-                            <EmptyChart />
-                        )}
-                    </div>
-                </div>
-
-
-                {/* ================================================= */}
-                {/* EVERY USER ANALYTICS */}
-                {/* ================================================= */}
-
-                <div style={chartCard}>
-                    <h2 style={{ marginTop: 0 }}>
-                        👤 Individual User Analytics
-                    </h2>
-
-                    <p style={chartDescription}>
-                        Select a user to inspect that user's
-                        complete financial analytics.
-                    </p>
-
-                    <select
-                        value={selectedUserId}
-                        onChange={(e) =>
-                            setSelectedUserId(
-                                e.target.value
-                            )
-                        }
-                        style={userSelect}
-                    >
-                        <option value="">
-                            Select a user
-                        </option>
-
-                        {userAnalytics.map((item) => (
-                            <option
-                                key={item.id}
-                                value={item.id}
-                            >
-                                {item.username}
-                                {" — "}
-                                {item.plan === "admin"
-                                    ? "Admin"
-                                    : item.plan === "premium"
-                                        ? "Premium"
-                                        : "Normal"}
-                            </option>
-                        ))}
-                    </select>
-                </div>
-
-
-                {selectedUser && (
-                    <>
-                        <div
-                            style={{
-                                background: "#eff6ff",
-                                border: "1px solid #bfdbfe",
-                                borderRadius: "12px",
-                                padding: "18px",
-                                marginBottom: "20px",
-                            }}
-                        >
-                            <h3
-                                style={{
-                                    marginTop: 0,
-                                    marginBottom: "6px",
-                                }}
-                            >
-                                👤 {selectedUser.username}
-                            </h3>
-
-                            <div
-                                style={{
-                                    color: "#475569",
-                                }}
-                            >
-                                {selectedUser.email}
-                                {" • "}
-                                {selectedUser.plan === "admin"
-                                    ? "Administrator"
-                                    : selectedUser.plan === "premium"
-                                        ? "Premium User"
-                                        : "Normal User"}
-                            </div>
-                        </div>
-
-                        <div style={cardGrid}>
-                            <MoneyCard
-                                title="Income"
-                                value={
-                                    selectedUser.total_income
-                                }
-                                icon="💵"
-                                valueColor="#16a34a"
-                            />
-
-                            <MoneyCard
-                                title="Expenses"
-                                value={
-                                    selectedUser.total_expense
-                                }
-                                icon="💸"
-                                valueColor="#dc2626"
-                            />
-
-                            <MoneyCard
-                                title="Savings"
-                                value={
-                                    selectedUser.total_saved
-                                }
-                                icon="🎯"
-                                valueColor="#a855f7"
-                            />
-
-                            <MoneyCard
-                                title="Net Balance"
-                                value={
-                                    selectedUser.net_balance
-                                }
-                                icon="💰"
-                            />
-
-                            <MoneyCard
-                                title="Bank Balance"
-                                value={
-                                    selectedUser.bank_balance
-                                }
-                                icon="🏦"
-                            />
-                        </div>
-
-
-                        {/* SELECTED USER MONTHLY CHART */}
-
-                        <div style={chartCard}>
-                            <h2 style={{ marginTop: 0 }}>
-                                📈 {selectedUser.username}'s
-                                Monthly Trend
-                            </h2>
-
-                            <div
-                                style={{
-                                    width: "100%",
-                                    height: "350px",
-                                }}
-                            >
-                                {selectedUser.monthly?.length >
-                                0 ? (
-                                    <ResponsiveContainer>
-                                        <LineChart
-                                            data={
-                                                selectedUser.monthly
-                                            }
-                                        >
-                                            <CartesianGrid
-                                                strokeDasharray="3 3"
-                                            />
-
-                                            <XAxis
-                                                dataKey="label"
-                                            />
-
-                                            <YAxis />
-
-                                            <Tooltip
-                                                formatter={(
-                                                    value,
-                                                    name
-                                                ) => [
-                                                    `₹${Number(
-                                                        value || 0
-                                                    ).toLocaleString(
-                                                        "en-IN"
-                                                    )}`,
-                                                    name,
-                                                ]}
-                                            />
-
-                                            <Legend />
-
-                                            <Line
-                                                type="monotone"
-                                                dataKey="income"
-                                                name="Income"
-                                                stroke="#16a34a"
-                                                strokeWidth={3}
-                                            />
-
-                                            <Line
-                                                type="monotone"
-                                                dataKey="expense"
-                                                name="Expense"
-                                                stroke="#dc2626"
-                                                strokeWidth={3}
-                                            />
-
-                                            <Line
-                                                type="monotone"
-                                                dataKey="savings"
-                                                name="Savings"
-                                                stroke="#a855f7"
-                                                strokeWidth={3}
-                                            />
-                                        </LineChart>
-                                    </ResponsiveContainer>
-                                ) : (
-                                    <EmptyChart />
-                                )}
-                            </div>
-                        </div>
-
-
-                        {/* SELECTED USER EXPENSE CATEGORIES */}
-
-                        <div style={chartCard}>
-                            <h2 style={{ marginTop: 0 }}>
-                                🥧 {selectedUser.username}'s
-                                Expense Distribution
-                            </h2>
-
-                            <div
-                                style={{
-                                    width: "100%",
-                                    height: "350px",
-                                }}
-                            >
-                                {selectedUser.expense_categories
-                                    ?.length > 0 ? (
-                                    <ResponsiveContainer>
-                                        <PieChart>
-                                            <Pie
-                                                data={
-                                                    selectedUser.expense_categories
-                                                }
-                                                dataKey="amount"
-                                                nameKey="category"
-                                                cx="50%"
-                                                cy="50%"
-                                                outerRadius={120}
-                                                label
-                                            >
-                                                {selectedUser.expense_categories.map(
-                                                    (
-                                                        entry,
-                                                        index
-                                                    ) => (
-                                                        <Cell
-                                                            key={
-                                                                `user-expense-${index}`
-                                                            }
-                                                            fill={
-                                                                expenseColors[
-                                                                    index %
-                                                                    expenseColors.length
-                                                                ]
-                                                            }
-                                                        />
-                                                    )
-                                                )}
-                                            </Pie>
-
-                                            <Tooltip
-                                                formatter={(
-                                                    value
-                                                ) =>
-                                                    `₹${Number(
-                                                        value || 0
-                                                    ).toLocaleString(
-                                                        "en-IN"
-                                                    )}`
-                                                }
-                                            />
-
-                                            <Legend />
-                                        </PieChart>
-                                    </ResponsiveContainer>
-                                ) : (
-                                    <EmptyChart />
-                                )}
-                            </div>
-                        </div>
-
-
-                        {/* SELECTED USER SAVINGS GOALS */}
-
-                        <div style={chartCard}>
-                            <h2 style={{ marginTop: 0 }}>
-                                🎯 {selectedUser.username}'s
-                                Savings Goals
-                            </h2>
-
-                            <div
-                                style={{
-                                    width: "100%",
-                                    height: "350px",
-                                }}
-                            >
-                                {selectedUser.savings_goals
-                                    ?.length > 0 ? (
-                                    <ResponsiveContainer>
-                                        <BarChart
-                                            data={
-                                                selectedUser.savings_goals.map(
-                                                    (goal) => ({
-                                                        name:
-                                                            goal.goal_name ||
-                                                            "Goal",
-                                                        target:
-                                                            Number(
-                                                                goal.target_amount ||
-                                                                0
-                                                            ),
-                                                        saved:
-                                                            Number(
-                                                                goal.current_amount ||
-                                                                0
-                                                            ),
-                                                    })
-                                                )
-                                            }
-                                        >
-                                            <CartesianGrid
-                                                strokeDasharray="3 3"
-                                            />
-
-                                            <XAxis
-                                                dataKey="name"
-                                            />
-
-                                            <YAxis />
-
-                                            <Tooltip
-                                                formatter={(
-                                                    value,
-                                                    name
-                                                ) => [
-                                                    `₹${Number(
-                                                        value || 0
-                                                    ).toLocaleString(
-                                                        "en-IN"
-                                                    )}`,
-                                                    name,
-                                                ]}
-                                            />
-
-                                            <Legend />
-
-                                            <Bar
-                                                dataKey="target"
-                                                name="Target"
-                                                fill="#ddd6fe"
-                                            />
-
-                                            <Bar
-                                                dataKey="saved"
-                                                name="Saved"
-                                                fill="#a855f7"
-                                            />
-                                        </BarChart>
-                                    </ResponsiveContainer>
-                                ) : (
-                                    <EmptyChart />
-                                )}
-                            </div>
-                        </div>
-                    </>
-                )}
-
-
-                {/* ================================================= */}
-                {/* ALL USER FINANCIAL TABLE */}
-                {/* ================================================= */}
-
-                <div style={chartCard}>
-                    <h2 style={{ marginTop: 0 }}>
-                        👥 All Users Financial Overview
-                    </h2>
-
-                    <div
-                        style={{
-                            overflowX: "auto",
-                        }}
-                    >
-                        <table
-                            style={{
-                                width: "100%",
-                                minWidth: "900px",
-                                borderCollapse: "collapse",
-                            }}
-                        >
-                            <thead>
-                                <tr
-                                    style={{
-                                        background: "#eff6ff",
-                                    }}
-                                >
-                                    <th style={tableHead}>
-                                        User
-                                    </th>
-
-                                    <th style={tableHead}>
-                                        Plan
-                                    </th>
-
-                                    <th style={tableHead}>
-                                        Income
-                                    </th>
-
-                                    <th style={tableHead}>
-                                        Expense
-                                    </th>
-
-                                    <th style={tableHead}>
-                                        Savings
-                                    </th>
-
-                                    <th style={tableHead}>
-                                        Balance
-                                    </th>
-
-                                    <th style={tableHead}>
-                                        Bank Balance
-                                    </th>
-                                </tr>
-                            </thead>
-
-                            <tbody>
-                                {userAnalytics.map(
-                                    (item) => (
-                                        <tr
-                                            key={item.id}
-                                            style={{
-                                                borderBottom:
-                                                    "1px solid #e2e8f0",
-                                            }}
-                                        >
-                                            <td style={tableCell}>
-                                                <strong>
-                                                    {
-                                                        item.username
-                                                    }
-                                                </strong>
-                                            </td>
-
-                                            <td style={tableCell}>
-                                                {item.plan ===
-                                                "admin"
-                                                    ? "Admin"
-                                                    : item.plan ===
-                                                        "premium"
-                                                        ? "Premium"
-                                                        : "Normal"}
-                                            </td>
-
-                                            <td
-                                                style={{
-                                                    ...tableCell,
-                                                    color: "#16a34a",
-                                                    fontWeight:
-                                                        "600",
-                                                }}
-                                            >
-                                                ₹
-                                                {Number(
-                                                    item.total_income ||
-                                                    0
-                                                ).toLocaleString(
-                                                    "en-IN"
-                                                )}
-                                            </td>
-
-                                            <td
-                                                style={{
-                                                    ...tableCell,
-                                                    color: "#dc2626",
-                                                    fontWeight:
-                                                        "600",
-                                                }}
-                                            >
-                                                ₹
-                                                {Number(
-                                                    item.total_expense ||
-                                                    0
-                                                ).toLocaleString(
-                                                    "en-IN"
-                                                )}
-                                            </td>
-
-                                            <td
-                                                style={{
-                                                    ...tableCell,
-                                                    color: "#a855f7",
-                                                    fontWeight:
-                                                        "600",
-                                                }}
-                                            >
-                                                ₹
-                                                {Number(
-                                                    item.total_saved ||
-                                                    0
-                                                ).toLocaleString(
-                                                    "en-IN"
-                                                )}
-                                            </td>
-
-                                            <td style={tableCell}>
-                                                ₹
-                                                {Number(
-                                                    item.net_balance ||
-                                                    0
-                                                ).toLocaleString(
-                                                    "en-IN"
-                                                )}
-                                            </td>
-
-                                            <td style={tableCell}>
-                                                ₹
-                                                {Number(
-                                                    item.bank_balance ||
-                                                    0
-                                                ).toLocaleString(
-                                                    "en-IN"
-                                                )}
-                                            </td>
-                                        </tr>
-                                    )
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-
-                {/* ================================================= */}
-                {/* MODULE BUTTONS */}
-                {/* ================================================= */}
+                {/* ==================================================
+                    CHARTS
+                ================================================== */}
 
                 <div
                     style={{
                         display: "grid",
                         gridTemplateColumns:
-                            "repeat(auto-fit, minmax(260px, 1fr))",
-                        gap: "20px",
+                            "repeat(auto-fit, minmax(350px, 1fr))",
+                        gap: "25px",
+                    }}
+                >
+
+                    {/* USER DISTRIBUTION */}
+
+                    <div
+                        style={{
+                            background: "white",
+                            padding: "25px",
+                            borderRadius: "12px",
+                            boxShadow:
+                                "0 2px 10px rgba(0,0,0,0.08)",
+                        }}
+                    >
+                        <h2
+                            style={{
+                                marginTop: 0,
+                            }}
+                        >
+                            User Distribution
+                        </h2>
+
+                        <div
+                            style={{
+                                width: "100%",
+                                height: "300px",
+                            }}
+                        >
+                            <ResponsiveContainer>
+                                <PieChart>
+                                    <Pie
+                                        data={userChartData}
+                                        dataKey="value"
+                                        nameKey="name"
+                                        cx="50%"
+                                        cy="50%"
+                                        outerRadius={100}
+                                        label
+                                    >
+                                        {userChartData.map((entry, index) => (
+                                            <Cell
+                                                key={`cell-${index}`}
+                                                fill={[
+                                                    "#2563EB", // Blue - Normal
+                                                    "#9333EA", // Purple - Premium
+                                                    "#DC2626", // Red - Admin
+                                                ][index]}
+                                            />
+                                        ))}
+                                    </Pie>
+
+                                    <Tooltip />
+                                    <Legend />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+
+
+                    {/* FINANCIAL OVERVIEW */}
+
+                    <div
+                        style={{
+                            background: "white",
+                            padding: "25px",
+                            borderRadius: "12px",
+                            boxShadow:
+                                "0 2px 10px rgba(0,0,0,0.08)",
+                        }}
+                    >
+                        <h2
+                            style={{
+                                marginTop: 0,
+                            }}
+                        >
+                            Financial Overview
+                        </h2>
+
+                        <div
+                            style={{
+                                width: "100%",
+                                height: "300px",
+                            }}
+                        >
+                            <ResponsiveContainer>
+                                <BarChart
+                                    data={financialChartData}
+                                >
+                                    <CartesianGrid strokeDasharray="3 3" />
+
+                                    <XAxis dataKey="name" />
+
+                                    <YAxis />
+
+                                    <Tooltip
+                                        formatter={(value) =>
+                                            formatMoney(value)
+                                        }
+                                    />
+
+                                    <Legend />
+
+                                    <Bar
+                                        dataKey="amount"
+                                        name="Amount"
+                                    >
+                                        {financialChartData.map((entry, index) => (
+                                            <Cell
+                                                key={`bar-${index}`}
+                                                fill={[
+                                                    "#16A34A", // Green - Income
+                                                    "#DC2626", // Red - Expense
+                                                    "#9333EA", // Purple - Saved
+                                                ][index]}
+                                            />
+                                        ))}
+                                    </Bar>
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+
+                </div>
+
+
+                {/* ==================================================
+                    SYSTEM INFORMATION
+                ================================================== */}
+
+                <div
+                    style={{
+                        background: "white",
+                        padding: "25px",
+                        borderRadius: "12px",
+                        boxShadow:
+                            "0 2px 10px rgba(0,0,0,0.08)",
                         marginTop: "25px",
                     }}
                 >
-                    <button
-                        onClick={() =>
-                            navigate("/system-analytics")
-                        }
-                        style={moduleButton}
+                    <h2
+                        style={{
+                            marginTop: 0,
+                        }}
                     >
-                        <span
-                            style={{
-                                fontSize: "32px",
-                            }}
-                        >
-                            📊
-                        </span>
+                        System Information
+                    </h2>
 
-                        <strong>
-                            System Analytics
-                        </strong>
-
-                        <span>
-                            Open detailed system analytics
-                        </span>
-                    </button>
-
-                    <button
-                        onClick={() =>
-                            navigate("/user-management")
-                        }
-                        style={moduleButton}
+                    <div
+                        style={{
+                            display: "grid",
+                            gridTemplateColumns:
+                                "repeat(auto-fit, minmax(180px, 1fr))",
+                            gap: "15px",
+                        }}
                     >
-                        <span
-                            style={{
-                                fontSize: "32px",
-                            }}
-                        >
-                            👥
-                        </span>
+                        <InfoBox
+                            title="Savings Goals"
+                            value={systemData.savings_goals}
+                        />
 
-                        <strong>
-                            User Management
-                        </strong>
+                        <InfoBox
+                            title="Income Records"
+                            value={systemData.income_records}
+                        />
 
-                        <span>
-                            Manage users and subscriptions
-                        </span>
-                    </button>
+                        <InfoBox
+                            title="Expense Records"
+                            value={systemData.expense_records}
+                        />
+
+                        <InfoBox
+                            title="Savings Transactions"
+                            value={systemData.savings_transactions}
+                        />
+
+                        <InfoBox
+                            title="Verified Users"
+                            value={userData.verified}
+                        />
+
+                        <InfoBox
+                            title="Unverified Users"
+                            value={userData.unverified}
+                        />
+                    </div>
                 </div>
-            </div>
+
+
+                {/* ==================================================
+                    APPLICATION STATUS
+                ================================================== */}
+
+                <div
+                    style={{
+                        background: "white",
+                        padding: "25px",
+                        borderRadius: "12px",
+                        boxShadow:
+                            "0 2px 10px rgba(0,0,0,0.08)",
+                        marginTop: "25px",
+                    }}
+                >
+                    <h2
+                        style={{
+                            marginTop: 0,
+                        }}
+                    >
+                        Application & Security
+                    </h2>
+
+                    <div
+                        style={{
+                            display: "grid",
+                            gridTemplateColumns:
+                                "repeat(auto-fit, minmax(220px, 1fr))",
+                            gap: "15px",
+                        }}
+                    >
+                        <InfoBox
+                            title="Application"
+                            value={applicationData.name}
+                        />
+
+                        <InfoBox
+                            title="Architecture"
+                            value={applicationData.architecture}
+                        />
+
+                        <InfoBox
+                            title="Authentication"
+                            value={applicationData.authentication}
+                        />
+
+                        <InfoBox
+                            title="Access Control"
+                            value={applicationData.access_control}
+                        />
+
+                        <InfoBox
+                            title="System Status"
+                            value={applicationData.status}
+                        />
+
+                        <InfoBox
+                            title="JWT Authentication"
+                            value={
+                                securityData.jwt_authentication
+                                    ? "Enabled"
+                                    : "Disabled"
+                            }
+                        />
+
+                        <InfoBox
+                            title="Role Based Access"
+                            value={
+                                securityData.role_based_access
+                                    ? "Enabled"
+                                    : "Disabled"
+                            }
+                        />
+
+                        <InfoBox
+                            title="Admin Protection"
+                            value={
+                                securityData.admin_protection
+                                    ? "Enabled"
+                                    : "Disabled"
+                            }
+                        />
+                    </div>
+                </div>
+
+
+                {/* ==================================================
+                    RECENT USERS
+                ================================================== */}
+
+                <div
+                    style={{
+                        background: "white",
+                        padding: "25px",
+                        borderRadius: "12px",
+                        boxShadow:
+                            "0 2px 10px rgba(0,0,0,0.08)",
+                        marginTop: "25px",
+                        marginBottom: "30px",
+                    }}
+                >
+                    <div
+                        style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            marginBottom: "15px",
+                        }}
+                    >
+                        <h2
+                            style={{
+                                margin: 0,
+                            }}
+                        >
+                            Users
+                        </h2>
+
+                        <span
+                            style={{
+                                color: "#777",
+                                fontSize: "14px",
+                            }}
+                        >
+                            {users.length} users
+                        </span>
+                    </div>
+
+                    {users.length === 0 ? (
+                        <p
+                            style={{
+                                color: "#777",
+                            }}
+                        >
+                            No users found.
+                        </p>
+                    ) : (
+                        <div
+                            style={{
+                                overflowX: "auto",
+                            }}
+                        >
+                            <table
+                                style={{
+                                    width: "100%",
+                                    borderCollapse: "collapse",
+                                }}
+                            >
+                                <thead>
+                                    <tr
+                                        style={{
+                                            background: "#f8fafc",
+                                        }}
+                                    >
+                                        <th style={tableHeader}>
+                                            ID
+                                        </th>
+
+                                        <th style={tableHeader}>
+                                            Username
+                                        </th>
+
+                                        <th style={tableHeader}>
+                                            Email
+                                        </th>
+
+                                        <th style={tableHeader}>
+                                            Role
+                                        </th>
+
+                                        <th style={tableHeader}>
+                                            Plan
+                                        </th>
+
+                                        <th style={tableHeader}>
+                                            Status
+                                        </th>
+                                    </tr>
+                                </thead>
+
+                                <tbody>
+                                    {users.map((user) => (
+                                        <tr key={user.id}>
+                                            <td style={tableCell}>
+                                                {user.id}
+                                            </td>
+
+                                            <td style={tableCell}>
+                                                {user.username}
+                                            </td>
+
+                                            <td style={tableCell}>
+                                                {user.email}
+                                            </td>
+
+                                            <td style={tableCell}>
+                                                {user.role}
+                                            </td>
+
+                                            <td style={tableCell}>
+                                                {user.plan}
+                                            </td>
+
+                                            <td style={tableCell}>
+                                                {user.verified
+                                                    ? "Verified"
+                                                    : "Unverified"}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
+
+            </main>
         </div>
     );
 }
 
 
 // ==========================================================
-// REUSABLE COMPONENTS
+// INFO BOX
 // ==========================================================
 
-function StatCard({
-    title,
-    value,
-    icon,
-}) {
-    return (
-        <div style={statCard}>
-            <div
-                style={{
-                    fontSize: "30px",
-                }}
-            >
-                {icon}
-            </div>
-
-            <div
-                style={{
-                    color: "#64748b",
-                    marginTop: "8px",
-                }}
-            >
-                {title}
-            </div>
-
-            <div
-                style={{
-                    fontSize: "24px",
-                    fontWeight: "bold",
-                    marginTop: "5px",
-                    color: "#1e293b",
-                }}
-            >
-                {value ?? 0}
-            </div>
-        </div>
-    );
-}
-
-
-function MoneyCard({
-    title,
-    value,
-    icon,
-    valueColor,
-}) {
-    return (
-        <div style={statCard}>
-            <div
-                style={{
-                    fontSize: "30px",
-                }}
-            >
-                {icon}
-            </div>
-
-            <div
-                style={{
-                    color: "#64748b",
-                    marginTop: "8px",
-                }}
-            >
-                {title}
-            </div>
-
-            <div
-                style={{
-                    fontSize: "23px",
-                    fontWeight: "bold",
-                    marginTop: "5px",
-                    color:
-                        valueColor ||
-                        "#1e293b",
-                }}
-            >
-                ₹
-                {Number(
-                    value || 0
-                ).toLocaleString(
-                    "en-IN"
-                )}
-            </div>
-        </div>
-    );
-}
-
-
-function EmptyChart() {
+function InfoBox({ title, value }) {
     return (
         <div
             style={{
-                height: "100%",
-                display: "flex",
-                justifyContent: "center",
-                alignItems: "center",
-                color: "#64748b",
+                padding: "15px",
+                borderRadius: "8px",
+                background: "#f8fafc",
+                border: "1px solid #e5e7eb",
             }}
         >
-            No data available.
+            <p
+                style={{
+                    margin: 0,
+                    color: "#777",
+                    fontSize: "13px",
+                }}
+            >
+                {title}
+            </p>
+
+            <p
+                style={{
+                    margin: "7px 0 0",
+                    fontWeight: "600",
+                    fontSize: "16px",
+                }}
+            >
+                {value ?? 0}
+            </p>
         </div>
     );
 }
 
 
 // ==========================================================
-// STYLES
+// TABLE STYLES
 // ==========================================================
 
-const sectionTitle = {
-    color: "#1e293b",
-    marginTop: "25px",
-    marginBottom: "15px",
-};
-
-
-const cardGrid = {
-    display: "grid",
-    gridTemplateColumns:
-        "repeat(auto-fit, minmax(190px, 1fr))",
-    gap: "18px",
-    marginBottom: "20px",
-};
-
-
-const statCard = {
-    background: "white",
-    padding: "20px",
-    borderRadius: "12px",
-    boxShadow:
-        "0 2px 10px rgba(0,0,0,0.06)",
-};
-
-
-const chartCard = {
-    background: "white",
-    padding: "22px",
-    borderRadius: "12px",
-    boxShadow:
-        "0 2px 10px rgba(0,0,0,0.06)",
-    marginBottom: "20px",
-};
-
-
-const chartDescription = {
-    color: "#64748b",
-    marginTop: "-8px",
-    marginBottom: "15px",
-};
-
-
-const primaryButton = {
-    border: "none",
-    background: "#2563eb",
-    color: "white",
-    padding: "12px 18px",
-    borderRadius: "8px",
-    cursor: "pointer",
-    fontWeight: "bold",
-};
-
-
-const secondaryButton = {
-    border: "1px solid #2563eb",
-    background: "white",
-    color: "#2563eb",
-    padding: "12px 18px",
-    borderRadius: "8px",
-    cursor: "pointer",
-    fontWeight: "bold",
-};
-
-
-const moduleButton = {
-    border: "none",
-    background: "white",
-    padding: "24px",
-    borderRadius: "12px",
-    boxShadow:
-        "0 2px 10px rgba(0,0,0,0.08)",
-    cursor: "pointer",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: "8px",
-    color: "#1e293b",
-    fontSize: "16px",
-};
-
-
-const userSelect = {
-    width: "100%",
-    maxWidth: "500px",
+const tableHeader = {
     padding: "12px",
-    border: "1px solid #cbd5e1",
-    borderRadius: "8px",
-    fontSize: "15px",
-    background: "white",
-};
-
-
-const tableHead = {
-    padding: "13px",
     textAlign: "left",
-    color: "#1e293b",
-    fontSize: "14px",
+    borderBottom: "1px solid #ddd",
+    fontSize: "13px",
+    color: "#555",
 };
-
 
 const tableCell = {
-    padding: "13px",
-    textAlign: "left",
-    color: "#334155",
+    padding: "12px",
+    borderBottom: "1px solid #eee",
     fontSize: "14px",
 };
 

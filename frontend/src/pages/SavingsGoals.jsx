@@ -7,6 +7,7 @@ import SavingsGoalForm from "../components/savings/SavingsGoalForm";
 import SavingsGoalList from "../components/savings/SavingsGoalList";
 
 function SavingsGoals() {
+
     const [refresh, setRefresh] = useState(false);
 
     const reloadGoals = () => {
@@ -16,19 +17,22 @@ function SavingsGoals() {
     return (
         <div
             style={{
-                display: "flex",
                 minHeight: "100vh",
                 background: "#f5f7fb",
             }}
         >
+
             <Sidebar />
 
-            <div
+            <main
                 style={{
-                    flex: 1,
+                    marginLeft: "250px",
+                    minHeight: "100vh",
                     padding: "20px",
+                    boxSizing: "border-box",
                 }}
             >
+
                 <Navbar />
 
                 <h1
@@ -46,7 +50,9 @@ function SavingsGoals() {
                 <SavingsGoalList
                     refresh={refresh}
                 />
-            </div>
+
+            </main>
+
         </div>
     );
 }

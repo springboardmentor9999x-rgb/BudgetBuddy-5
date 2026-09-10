@@ -14,7 +14,6 @@ function SavingsGoalForm({ refresh }) {
     const [loading, setLoading] = useState(false);
     const [loadingBanks, setLoadingBanks] = useState(true);
 
-
     // ==================================================
     // LOAD BANK ACCOUNTS
     // ==================================================
@@ -30,9 +29,25 @@ function SavingsGoalForm({ refresh }) {
                 const response =
                     await api.get("/banks");
 
-                setBankAccounts(
-                    response.data || []
-                );
+                const accounts =
+                    Array.isArray(response.data)
+                        ? response.data
+                        : [];
+
+                setBankAccounts(accounts);
+
+                // Automatically select primary account
+                const primaryBank =
+                    accounts.find(
+                        (bank) =>
+                            bank.is_primary === true
+                    );
+
+                if (primaryBank) {
+                    setBankAccountId(
+                        String(primaryBank.id)
+                    );
+                }
 
             } catch (error) {
 
@@ -42,6 +57,7 @@ function SavingsGoalForm({ refresh }) {
                 );
 
                 toast.error(
+                    error.response?.data?.detail ||
                     "Unable to load bank accounts"
                 );
 
@@ -55,7 +71,6 @@ function SavingsGoalForm({ refresh }) {
 
     }, []);
 
-
     // ==================================================
     // SUBMIT
     // ==================================================
@@ -63,7 +78,6 @@ function SavingsGoalForm({ refresh }) {
     const handleSubmit = async (e) => {
 
         e.preventDefault();
-
 
         if (!goalName.trim()) {
 
@@ -73,7 +87,6 @@ function SavingsGoalForm({ refresh }) {
 
             return;
         }
-
 
         if (
             !targetAmount ||
@@ -87,7 +100,6 @@ function SavingsGoalForm({ refresh }) {
             return;
         }
 
-
         if (Number(currentAmount) < 0) {
 
             toast.error(
@@ -96,7 +108,6 @@ function SavingsGoalForm({ refresh }) {
 
             return;
         }
-
 
         if (
             Number(currentAmount) >
@@ -110,7 +121,6 @@ function SavingsGoalForm({ refresh }) {
             return;
         }
 
-
         if (!bankAccountId) {
 
             toast.error(
@@ -120,11 +130,9 @@ function SavingsGoalForm({ refresh }) {
             return;
         }
 
-
         try {
 
             setLoading(true);
-
 
             await api.post(
                 "/savings-goals",
@@ -143,23 +151,21 @@ function SavingsGoalForm({ refresh }) {
                 }
             );
 
-
             toast.success(
                 "Savings goal created successfully"
             );
 
-
+            // Clear form
             setGoalName("");
-
             setTargetAmount("");
-
             setCurrentAmount("0");
 
-            setBankAccountId("");
+            // Keep selected bank account
+            // for creating another goal
 
-
-            refresh();
-
+            if (refresh) {
+                refresh();
+            }
 
         } catch (error) {
 
@@ -179,6 +185,43 @@ function SavingsGoalForm({ refresh }) {
         }
     };
 
+    // ==================================================
+    // GET BANK DISPLAY NAME
+    // ==================================================
+
+    const getBankDisplayName = (bank) => {
+
+        if (!bank) {
+            return "Unknown Account";
+        }
+
+        return (
+            bank.bank_name +
+            (
+                bank.account_number
+                    ? ` - ****${String(
+                          bank.account_number
+                      ).slice(-4)}`
+                    : ""
+            ) +
+            (
+                bank.is_primary
+                    ? " (Primary)"
+                    : ""
+            )
+        );
+    };
+
+    // ==================================================
+    // SELECTED BANK
+    // ==================================================
+
+    const selectedBank =
+        bankAccounts.find(
+            (bank) =>
+                String(bank.id) ===
+                String(bankAccountId)
+        );
 
     // ==================================================
     // RENDER
@@ -200,7 +243,6 @@ function SavingsGoalForm({ refresh }) {
             <h2 style={{ marginTop: 0 }}>
                 Create New Savings Goal
             </h2>
-
 
             <form onSubmit={handleSubmit}>
 
@@ -235,13 +277,13 @@ function SavingsGoalForm({ refresh }) {
                                 padding: "10px",
                                 marginTop: "6px",
                                 boxSizing: "border-box",
-                                border: "1px solid #ddd",
+                                border:
+                                    "1px solid #ddd",
                                 borderRadius: "6px",
                             }}
                         />
 
                     </div>
-
 
                     {/* TARGET AMOUNT */}
 
@@ -267,13 +309,13 @@ function SavingsGoalForm({ refresh }) {
                                 padding: "10px",
                                 marginTop: "6px",
                                 boxSizing: "border-box",
-                                border: "1px solid #ddd",
+                                border:
+                                    "1px solid #ddd",
                                 borderRadius: "6px",
                             }}
                         />
 
                     </div>
-
 
                     {/* CURRENT AMOUNT */}
 
@@ -299,19 +341,23 @@ function SavingsGoalForm({ refresh }) {
                                 padding: "10px",
                                 marginTop: "6px",
                                 boxSizing: "border-box",
-                                border: "1px solid #ddd",
+                                border:
+                                    "1px solid #ddd",
                                 borderRadius: "6px",
                             }}
                         />
 
                     </div>
 
-
                     {/* BANK ACCOUNT */}
 
                     <div>
 
-                        <label>
+                        <label
+                            style={{
+                                fontWeight: "600",
+                            }}
+                        >
                             Bank Account
                         </label>
 
@@ -330,7 +376,8 @@ function SavingsGoalForm({ refresh }) {
                                 width: "100%",
                                 padding: "10px",
                                 marginTop: "6px",
-                                border: "1px solid #ddd",
+                                border:
+                                    "1px solid #ddd",
                                 borderRadius: "6px",
                                 background: "white",
                             }}
@@ -345,7 +392,6 @@ function SavingsGoalForm({ refresh }) {
                                 }
                             </option>
 
-
                             {bankAccounts.map(
                                 (bank) => (
 
@@ -353,12 +399,9 @@ function SavingsGoalForm({ refresh }) {
                                         key={bank.id}
                                         value={bank.id}
                                     >
-                                        {bank.bank_name}
-                                        {" - "}
-                                        ****
-                                        {String(
-                                            bank.account_number
-                                        ).slice(-4)}
+                                        {getBankDisplayName(
+                                            bank
+                                        )}
                                     </option>
 
                                 )
@@ -370,6 +413,32 @@ function SavingsGoalForm({ refresh }) {
 
                 </div>
 
+                {/* SELECTED ACCOUNT */}
+
+                {selectedBank && (
+
+                    <div
+                        style={{
+                            marginTop: "18px",
+                            padding: "12px 15px",
+                            background: "#eff6ff",
+                            border:
+                                "1px solid #bfdbfe",
+                            borderRadius: "7px",
+                            color: "#1e40af",
+                            fontWeight: "600",
+                        }}
+                    >
+                        💰 Savings for this goal will be
+                        linked to:{" "}
+                        {getBankDisplayName(
+                            selectedBank
+                        )}
+                    </div>
+
+                )}
+
+                {/* BUTTON */}
 
                 <button
                     type="submit"
@@ -405,6 +474,24 @@ function SavingsGoalForm({ refresh }) {
                         : "Create Savings Goal"}
 
                 </button>
+
+                {/* NO BANK */}
+
+                {bankAccounts.length === 0 &&
+                    !loadingBanks && (
+
+                        <p
+                            style={{
+                                color: "#dc2626",
+                                marginTop: "12px",
+                            }}
+                        >
+                            No bank account found.
+                            Please add a bank account
+                            first.
+                        </p>
+
+                    )}
 
             </form>
 

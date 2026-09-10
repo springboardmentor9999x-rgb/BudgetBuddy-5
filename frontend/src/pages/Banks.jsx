@@ -17,7 +17,6 @@ function Banks() {
     return (
         <div
             style={{
-                display: "flex",
                 minHeight: "100vh",
                 background: "#f5f7fb",
             }}
@@ -25,10 +24,12 @@ function Banks() {
 
             <Sidebar />
 
-            <div
+            <main
                 style={{
-                    flex: 1,
+                    marginLeft: "250px",
+                    minHeight: "100vh",
                     padding: "20px",
+                    boxSizing: "border-box",
                 }}
             >
 
@@ -50,7 +51,7 @@ function Banks() {
                     refresh={refresh}
                 />
 
-            </div>
+            </main>
 
         </div>
     );

@@ -551,7 +551,6 @@ function Profile() {
     return (
         <div
             style={{
-                display: "flex",
                 minHeight: "100vh",
                 background: "#f5f7fb",
             }}
@@ -561,7 +560,8 @@ function Profile() {
 
             <div
                 style={{
-                    flex: 1,
+                    marginLeft: "250px",
+                    minHeight: "100vh",
                     minWidth: 0,
                 }}
             >

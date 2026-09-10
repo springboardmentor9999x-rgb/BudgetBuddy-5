@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import Sidebar from "../components/layout/Sidebar";
 
 
 // ==========================================================
@@ -437,13 +438,20 @@ function Notifications() {
 
         <div
             style={{
-                padding: "30px",
-                width: "100%",
-                boxSizing: "border-box",
-                background: "#f5f7fb",
                 minHeight: "100vh",
+                background: "#f5f7fb",
             }}
         >
+            <Sidebar />
+
+            <main
+                style={{
+                    marginLeft: "250px",
+                    minHeight: "100vh",
+                    padding: "30px",
+                    boxSizing: "border-box",
+                }}
+            >
 
             {/* ==================================================
                 HEADER
@@ -876,6 +884,7 @@ function Notifications() {
 
             )}
 
+            </main>
         </div>
     );
 }

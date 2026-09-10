@@ -5,7 +5,6 @@ import { FaEdit, FaTrash } from "react-icons/fa";
 import EditExpenseModal from "./EditExpenseModal";
 
 function ExpenseList({ refresh }) {
-
     const [expenses, setExpenses] = useState([]);
 
     const [banks, setBanks] = useState([]);
@@ -17,15 +16,12 @@ function ExpenseList({ refresh }) {
     const [selectedExpense, setSelectedExpense] =
         useState(null);
 
-
     // ==========================================
     // LOAD BANK ACCOUNTS
     // ==========================================
 
     const fetchBanks = async () => {
-
         try {
-
             const response =
                 await api.get("/banks");
 
@@ -37,49 +33,37 @@ function ExpenseList({ refresh }) {
             setBanks(bankList);
 
         } catch (error) {
-
             console.log(
                 "BANK LOAD ERROR:",
                 error
             );
 
             toast.error(
+                error.response?.data?.detail ||
                 "Unable to load bank accounts"
             );
         }
     };
-
 
     // ==========================================
     // LOAD EXPENSES
     // ==========================================
 
     const fetchExpenses = async () => {
-
         try {
-
             const response =
                 await api.get("/expenses");
 
             setExpenses(
-                response.data
+                Array.isArray(response.data)
+                    ? response.data
+                    : []
             );
 
         } catch (error) {
-
             console.log(
                 "EXPENSE LIST ERROR:",
                 error
-            );
-
-            console.log(
-                "STATUS:",
-                error.response?.status
-            );
-
-            console.log(
-                "DATA:",
-                error.response?.data
             );
 
             toast.error(
@@ -89,18 +73,14 @@ function ExpenseList({ refresh }) {
         }
     };
 
-
     // ==========================================
     // INITIAL LOAD
     // ==========================================
 
     useEffect(() => {
-
         fetchExpenses();
         fetchBanks();
-
     }, [refresh]);
-
 
     // ==========================================
     // FILTER EXPENSES
@@ -117,7 +97,6 @@ function ExpenseList({ refresh }) {
                 selectedBank === "all" ||
                 String(item.bank_account_id) ===
                 String(selectedBank);
-
 
             // -------------------------------
             // SEARCH
@@ -138,19 +117,16 @@ function ExpenseList({ refresh }) {
             const keyword =
                 search.toLowerCase();
 
-
             const matchesSearch =
                 category.includes(keyword) ||
                 paymentMethod.includes(keyword) ||
                 description.includes(keyword);
-
 
             return (
                 matchesBank &&
                 matchesSearch
             );
         });
-
 
     // ==========================================
     // DELETE EXPENSE
@@ -168,7 +144,6 @@ function ExpenseList({ refresh }) {
         }
 
         try {
-
             await api.delete(
                 `/expenses/${id}`
             );
@@ -180,7 +155,6 @@ function ExpenseList({ refresh }) {
             fetchExpenses();
 
         } catch (error) {
-
             console.log(
                 "DELETE ERROR:",
                 error
@@ -193,18 +167,14 @@ function ExpenseList({ refresh }) {
         }
     };
 
-
     // ==========================================
     // EDIT EXPENSE
     // ==========================================
 
     const editExpense = (item) => {
-
         setSelectedExpense(item);
         setShowModal(true);
-
     };
-
 
     // ==========================================
     // TOTAL EXPENSE
@@ -213,10 +183,10 @@ function ExpenseList({ refresh }) {
     const totalExpense =
         filteredExpenses.reduce(
             (total, item) =>
-                total + Number(item.amount),
+                total +
+                Number(item.amount || 0),
             0
         );
-
 
     // ==========================================
     // SELECTED BANK
@@ -229,9 +199,46 @@ function ExpenseList({ refresh }) {
                 String(selectedBank)
         );
 
+    // ==========================================
+    // GET BANK INFORMATION
+    // ==========================================
+
+    const getBankInfo = (bankId) => {
+
+        if (!bankId) {
+            return {
+                name: "No Account",
+                number: "",
+                primary: false,
+            };
+        }
+
+        const bank = banks.find(
+            (item) =>
+                String(item.id) ===
+                String(bankId)
+        );
+
+        if (!bank) {
+            return {
+                name: "Unknown Account",
+                number: "",
+                primary: false,
+            };
+        }
+
+        return {
+            name: bank.bank_name,
+            number: bank.account_number
+                ? `****${String(
+                      bank.account_number
+                  ).slice(-4)}`
+                : "",
+            primary: bank.is_primary === true,
+        };
+    };
 
     return (
-
         <div
             style={{
                 marginTop: "40px",
@@ -252,7 +259,6 @@ function ExpenseList({ refresh }) {
                         "0 2px 8px rgba(0,0,0,0.08)",
                 }}
             >
-
                 <label
                     style={{
                         display: "block",
@@ -280,13 +286,11 @@ function ExpenseList({ refresh }) {
                             "border-box",
                     }}
                 >
-
                     <option value="all">
                         All Accounts
                     </option>
 
                     {banks.map((bank) => (
-
                         <option
                             key={bank.id}
                             value={bank.id}
@@ -303,13 +307,9 @@ function ExpenseList({ refresh }) {
                                 ? " (Primary)"
                                 : ""}
                         </option>
-
                     ))}
-
                 </select>
-
             </div>
-
 
             {/* =====================================
                 SELECTED BANK TITLE
@@ -320,15 +320,14 @@ function ExpenseList({ refresh }) {
 
                     <h3
                         style={{
-                            marginBottom: "15px",
+                            marginBottom:
+                                "15px",
                         }}
                     >
                         Expense History -{" "}
                         {selectedBankObject.bank_name}
                     </h3>
-
                 )}
-
 
             {/* =====================================
                 TOTAL EXPENSE
@@ -345,14 +344,11 @@ function ExpenseList({ refresh }) {
                     fontWeight: "bold",
                 }}
             >
-
                 Total Expense : ₹{" "}
                 {totalExpense.toLocaleString(
                     "en-IN"
                 )}
-
             </div>
-
 
             {/* =====================================
                 SEARCH
@@ -377,7 +373,6 @@ function ExpenseList({ refresh }) {
                 }}
             />
 
-
             {/* =====================================
                 TITLE
             ====================================== */}
@@ -385,7 +380,6 @@ function ExpenseList({ refresh }) {
             <h2>
                 Expense History
             </h2>
-
 
             {/* =====================================
                 TABLE
@@ -396,7 +390,6 @@ function ExpenseList({ refresh }) {
                     overflowX: "auto",
                 }}
             >
-
                 <table
                     style={{
                         width: "100%",
@@ -405,9 +398,7 @@ function ExpenseList({ refresh }) {
                         background: "white",
                     }}
                 >
-
                     <thead>
-
                         <tr
                             style={{
                                 background:
@@ -415,7 +406,6 @@ function ExpenseList({ refresh }) {
                                 color: "white",
                             }}
                         >
-
                             <th
                                 style={{
                                     padding:
@@ -425,39 +415,68 @@ function ExpenseList({ refresh }) {
                                 Category
                             </th>
 
-                            <th>
+                            <th
+                                style={{
+                                    padding:
+                                        "12px",
+                                }}
+                            >
                                 Payment Method
                             </th>
 
-                            <th>
+                            <th
+                                style={{
+                                    padding:
+                                        "12px",
+                                }}
+                            >
+                                Bank Account
+                            </th>
+
+                            <th
+                                style={{
+                                    padding:
+                                        "12px",
+                                }}
+                            >
                                 Amount
                             </th>
 
-                            <th>
+                            <th
+                                style={{
+                                    padding:
+                                        "12px",
+                                }}
+                            >
                                 Description
                             </th>
 
-                            <th>
+                            <th
+                                style={{
+                                    padding:
+                                        "12px",
+                                }}
+                            >
                                 Date
                             </th>
 
-                            <th>
+                            <th
+                                style={{
+                                    padding:
+                                        "12px",
+                                }}
+                            >
                                 Action
                             </th>
-
                         </tr>
-
                     </thead>
 
-
                     <tbody>
-
                         {filteredExpenses.length === 0 ? (
 
                             <tr>
-
                                 <td
-                                    colSpan="6"
+                                    colSpan="7"
                                     style={{
                                         padding:
                                             "30px",
@@ -470,132 +489,199 @@ function ExpenseList({ refresh }) {
                                     No expenses found
                                     for this bank.
                                 </td>
-
                             </tr>
 
                         ) : (
 
                             filteredExpenses.map(
-                                (item) => (
+                                (item) => {
 
-                                    <tr
-                                        key={item.id}
-                                        style={{
-                                            textAlign:
-                                                "center",
-                                            borderBottom:
-                                                "1px solid #ddd",
-                                        }}
-                                    >
+                                    const bank =
+                                        getBankInfo(
+                                            item.bank_account_id
+                                        );
 
-                                        <td
+                                    return (
+                                        <tr
+                                            key={item.id}
                                             style={{
-                                                padding:
-                                                    "12px",
+                                                textAlign:
+                                                    "center",
+                                                borderBottom:
+                                                    "1px solid #ddd",
                                             }}
                                         >
-                                            {item.category}
-                                        </td>
 
-                                        <td>
-                                            {item.payment_method}
-                                        </td>
+                                            {/* CATEGORY */}
 
-                                        <td
-                                            style={{
-                                                color:
-                                                    "#dc2626",
-                                                fontWeight:
-                                                    "600",
-                                            }}
-                                        >
-                                            ₹{" "}
-                                            {Number(
-                                                item.amount
-                                            ).toLocaleString(
-                                                "en-IN"
-                                            )}
-                                        </td>
-
-                                        <td>
-                                            {item.description ||
-                                                "-"}
-                                        </td>
-
-                                        <td>
-                                            {item.date}
-                                        </td>
-
-                                        <td>
-
-                                            {/* EDIT */}
-
-                                            <button
-                                                onClick={() =>
-                                                    editExpense(
-                                                        item
-                                                    )
-                                                }
+                                            <td
                                                 style={{
-                                                    background:
-                                                        "#ffc107",
-                                                    border:
-                                                        "none",
                                                     padding:
-                                                        "8px",
-                                                    marginRight:
-                                                        "8px",
-                                                    cursor:
-                                                        "pointer",
-                                                    borderRadius:
-                                                        "5px",
+                                                        "12px",
                                                 }}
                                             >
-                                                <FaEdit />
-                                            </button>
+                                                {item.category}
+                                            </td>
 
+                                            {/* PAYMENT METHOD */}
 
-                                            {/* DELETE */}
-
-                                            <button
-                                                onClick={() =>
-                                                    deleteExpense(
-                                                        item.id
-                                                    )
-                                                }
+                                            <td
                                                 style={{
-                                                    background:
-                                                        "#dc3545",
+                                                    padding:
+                                                        "12px",
+                                                }}
+                                            >
+                                                {item.payment_method}
+                                            </td>
+
+                                            {/* BANK ACCOUNT */}
+
+                                            <td
+                                                style={{
+                                                    padding:
+                                                        "12px",
+                                                    fontWeight:
+                                                        "600",
+                                                }}
+                                            >
+                                                <div>
+                                                    {bank.name}
+                                                </div>
+
+                                                {bank.number && (
+                                                    <div
+                                                        style={{
+                                                            fontSize:
+                                                                "12px",
+                                                            color:
+                                                                "#64748b",
+                                                            marginTop:
+                                                                "3px",
+                                                        }}
+                                                    >
+                                                        {bank.number}
+
+                                                        {bank.primary &&
+                                                            " • Primary"}
+                                                    </div>
+                                                )}
+                                            </td>
+
+                                            {/* AMOUNT */}
+
+                                            <td
+                                                style={{
+                                                    padding:
+                                                        "12px",
                                                     color:
-                                                        "white",
-                                                    border:
-                                                        "none",
-                                                    padding:
-                                                        "8px",
-                                                    cursor:
-                                                        "pointer",
-                                                    borderRadius:
-                                                        "5px",
+                                                        "#dc2626",
+                                                    fontWeight:
+                                                        "600",
                                                 }}
                                             >
-                                                <FaTrash />
-                                            </button>
+                                                ₹{" "}
+                                                {Number(
+                                                    item.amount ||
+                                                    0
+                                                ).toLocaleString(
+                                                    "en-IN"
+                                                )}
+                                            </td>
 
-                                        </td>
+                                            {/* DESCRIPTION */}
 
-                                    </tr>
+                                            <td
+                                                style={{
+                                                    padding:
+                                                        "12px",
+                                                }}
+                                            >
+                                                {item.description ||
+                                                    "-"}
+                                            </td>
 
-                                )
+                                            {/* DATE */}
+
+                                            <td
+                                                style={{
+                                                    padding:
+                                                        "12px",
+                                                }}
+                                            >
+                                                {item.date}
+                                            </td>
+
+                                            {/* ACTION */}
+
+                                            <td
+                                                style={{
+                                                    padding:
+                                                        "12px",
+                                                }}
+                                            >
+
+                                                {/* EDIT */}
+
+                                                <button
+                                                    onClick={() =>
+                                                        editExpense(
+                                                            item
+                                                        )
+                                                    }
+                                                    style={{
+                                                        background:
+                                                            "#ffc107",
+                                                        border:
+                                                            "none",
+                                                        padding:
+                                                            "8px",
+                                                        marginRight:
+                                                            "8px",
+                                                        cursor:
+                                                            "pointer",
+                                                        borderRadius:
+                                                            "5px",
+                                                    }}
+                                                >
+                                                    <FaEdit />
+                                                </button>
+
+                                                {/* DELETE */}
+
+                                                <button
+                                                    onClick={() =>
+                                                        deleteExpense(
+                                                            item.id
+                                                        )
+                                                    }
+                                                    style={{
+                                                        background:
+                                                            "#dc3545",
+                                                        color:
+                                                            "white",
+                                                        border:
+                                                            "none",
+                                                        padding:
+                                                            "8px",
+                                                        cursor:
+                                                            "pointer",
+                                                        borderRadius:
+                                                            "5px",
+                                                    }}
+                                                >
+                                                    <FaTrash />
+                                                </button>
+
+                                            </td>
+
+                                        </tr>
+                                    );
+                                }
                             )
-
                         )}
-
                     </tbody>
-
                 </table>
-
             </div>
-
 
             {/* =====================================
                 EDIT MODAL
@@ -611,7 +697,6 @@ function ExpenseList({ refresh }) {
             />
 
         </div>
-
     );
 }
 

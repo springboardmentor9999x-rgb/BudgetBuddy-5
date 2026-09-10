@@ -1,4 +1,5 @@
 import axios from "axios";
+import { toast } from "react-toastify";
 
 const api = axios.create({
     baseURL: "http://127.0.0.1:8000",
@@ -17,8 +18,7 @@ ATTACH JWT TOKEN TO EVERY REQUEST
 api.interceptors.request.use(
     (config) => {
 
-        const token =
-            localStorage.getItem("token");
+        const token = localStorage.getItem("token");
 
         if (token) {
 
@@ -53,10 +53,22 @@ api.interceptors.response.use(
         if (error.response?.status === 401) {
 
             console.log(
-                "Unauthorized request"
+                "Login session expired"
             );
 
+            // Remove expired token
             localStorage.removeItem("token");
+
+            // Remove stored user information if you have it
+            localStorage.removeItem("user");
+
+            // Show notification
+            toast.error(
+                "Your login session has expired. Please login again."
+            );
+
+            // Redirect to login page
+            window.location.href = "/login";
         }
 
         return Promise.reject(error);

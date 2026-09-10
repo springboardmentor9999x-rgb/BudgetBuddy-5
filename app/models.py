@@ -42,6 +42,8 @@ class User(Base):
         unique=True,
         nullable=False
     )
+    
+    phone = Column(String(15), nullable=True)
 
     password = Column(
         String(255),
