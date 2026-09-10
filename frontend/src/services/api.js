@@ -1,26 +1,40 @@
 import axios from 'axios';
 
+// Hardcoded Railway backend URL — no env var needed
+const RAILWAY_BACKEND = 'https://budgetbuddy.up.railway.app/api/v1';
+
 export const getApiBaseUrl = () => {
+  // 1. Custom override from localStorage
   if (typeof window !== 'undefined') {
     const custom = localStorage.getItem('budgetbuddy_custom_api_url');
     if (custom && custom.trim() !== '') {
       return custom.trim();
     }
   }
+  // 2. Env var (for local dev with custom backend)
   if (import.meta.env.VITE_API_URL) {
     return import.meta.env.VITE_API_URL;
   }
+  // 3. Production: always use Railway
   if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-    return 'https://budgetbuddy-5-production.up.railway.app/api/v1';
+    return RAILWAY_BACKEND;
   }
+  // 4. Local development
   return 'http://localhost:8000/api/v1';
 };
 
+// Create axios with a PLACEHOLDER baseURL — the real URL is set per-request
 const api = axios.create({
-  baseURL: getApiBaseUrl(),
+  baseURL: RAILWAY_BACKEND,
   headers: {
     'Content-Type': 'application/json',
   },
+});
+
+// Resolve the correct baseURL lazily on EVERY request (not at build time)
+api.interceptors.request.use((config) => {
+  config.baseURL = getApiBaseUrl();
+  return config;
 });
 
 // Demo Mode Mock Dataset

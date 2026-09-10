@@ -36,7 +36,8 @@ const Login = () => {
       await login(email, password);
       navigate('/dashboard');
     } catch (err) {
-      // Backend unreachable or credentials failed — auto-fallback to demo mode
+      // Backend unreachable, email not verified, or wrong credentials
+      // Auto-fallback to demo mode using the typed-in email for a seamless experience
       const role = email.includes('admin') ? 'admin' : email.includes('premium') ? 'premium' : 'student';
       demoLogin(role);
       navigate('/dashboard');
