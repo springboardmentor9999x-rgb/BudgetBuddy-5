@@ -1,0 +1,366 @@
+{
+	"info": {
+		"_postman_id": "b8f41f3d-9d7a-4318-8a22-budgetbuddy2026",
+		"name": "BudgetBuddy API Collection",
+		"description": "Complete Postman API Collection for BudgetBuddy Personal Budget Planning and Expense Management Platform.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:8000/api/v1",
+			"type": "string"
+		},
+		{
+			"key": "token",
+			"value": "",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "1. Authentication",
+			"item": [
+				{
+					"name": "Login (Student)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"if (jsonData.access_token) {",
+									"    pm.collectionVariables.set(\"token\", jsonData.access_token);",
+									"    console.log(\"JWT Token saved automatically!\");",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "username",
+									"value": "student@budgetbuddy.com",
+									"type": "text"
+								},
+								{
+									"key": "password",
+									"value": "password123",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/login",
+							"host": ["{{baseUrl}}"],
+							"path": ["auth", "login"]
+						}
+					}
+				},
+				{
+					"name": "Login (Admin)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"if (jsonData.access_token) {",
+									"    pm.collectionVariables.set(\"token\", jsonData.access_token);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "username",
+									"value": "admin@budgetbuddy.com",
+									"type": "text"
+								},
+								{
+									"key": "password",
+									"value": "password123",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/login",
+							"host": ["{{baseUrl}}"],
+							"path": ["auth", "login"]
+						}
+					}
+				},
+				{
+					"name": "Register User",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"newstudent@budgetbuddy.com\",\n  \"full_name\": \"John Doe\",\n  \"password\": \"password123\",\n  \"role\": \"student\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/register",
+							"host": ["{{baseUrl}}"],
+							"path": ["auth", "register"]
+						}
+					}
+				},
+				{
+					"name": "Get Current User Profile",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/auth/me",
+							"host": ["{{baseUrl}}"],
+							"path": ["auth", "me"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "2. Expenses",
+			"item": [
+				{
+					"name": "Get All Expenses",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/expenses/",
+							"host": ["{{baseUrl}}"],
+							"path": ["expenses", ""]
+						}
+					}
+				},
+				{
+					"name": "Add New Expense",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+						},
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"title\": \"Cafeteria Lunch\",\n  \"amount\": 18.50,\n  \"category\": \"Food\",\n  \"payment_method\": \"Debit Card\",\n  \"notes\": \"Lunch with friends\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/expenses/",
+							"host": ["{{baseUrl}}"],
+							"path": ["expenses", ""]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "3. Incomes",
+			"item": [
+				{
+					"name": "Get Incomes",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/incomes/",
+							"host": ["{{baseUrl}}"],
+							"path": ["incomes", ""]
+						}
+					}
+				},
+				{
+					"name": "Add Income",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+						},
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"title\": \"Pocket Money Allowance\",\n  \"amount\": 500.00,\n  \"category\": \"Pocket Money\",\n  \"description\": \"Monthly pocket money from parents\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/incomes/",
+							"host": ["{{baseUrl}}"],
+							"path": ["incomes", ""]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "4. Budgets",
+			"item": [
+				{
+					"name": "Get Budgets",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/budgets/",
+							"host": ["{{baseUrl}}"],
+							"path": ["budgets", ""]
+						}
+					}
+				},
+				{
+					"name": "Set Category Budget",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+						},
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"category\": \"Food\",\n  \"amount_allocated\": 250.00,\n  \"month\": \"2026-07\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/budgets/",
+							"host": ["{{baseUrl}}"],
+							"path": ["budgets", ""]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "5. Analytics & Predictor",
+			"item": [
+				{
+					"name": "Get Summary Analytics",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/analytics/summary",
+							"host": ["{{baseUrl}}"],
+							"path": ["analytics", "summary"]
+						}
+					}
+				},
+				{
+					"name": "Get Cashflow Predictor",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/analytics/prediction",
+							"host": ["{{baseUrl}}"],
+							"path": ["analytics", "prediction"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "6. Reports & Data Export",
+			"item": [
+				{
+					"name": "Export PDF Summary Report",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/reports/pdf",
+							"host": ["{{baseUrl}}"],
+							"path": ["reports", "pdf"]
+						}
+					}
+				},
+				{
+					"name": "Export Excel Workbook",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/reports/excel",
+							"host": ["{{baseUrl}}"],
+							"path": ["reports", "excel"]
+						}
+					}
+				},
+				{
+					"name": "Export CSV File",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/reports/csv",
+							"host": ["{{baseUrl}}"],
+							"path": ["reports", "csv"]
+						}
+					}
+				}
+			]
+		}
+	]
+}
