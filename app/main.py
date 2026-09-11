@@ -19,10 +19,11 @@ from app.analytics import router as analytics_router
 app = FastAPI(title="BudgetBuddy API")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
+   allow_origins=[
         "http://localhost:3000",
         "http://localhost:5173",
         "http://localhost:5174",
+        "https://wondrous-pastelito-31414b.netlify.app",
     ],
     allow_credentials=True,
     allow_methods=["*"],
