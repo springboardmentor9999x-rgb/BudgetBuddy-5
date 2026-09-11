@@ -1,38 +1,50 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 
+const API_URL =
+    "https://budgetbuddy-5-production.up.railway.app";
+
 function Navbar() {
     const [notifications, setNotifications] = useState([]);
-    const [showNotifications, setShowNotifications] = useState(false);
+    const [showNotifications, setShowNotifications] =
+        useState(false);
+
+    const { user } = useAuth();
 
     const token = localStorage.getItem("token");
-
-    // Get logged-in user
-    const { user } = useAuth();
 
     // ==========================================
     // GET NOTIFICATIONS
     // ==========================================
 
     const fetchNotifications = async () => {
+        if (!token) {
+            return;
+        }
+
         try {
             const response = await fetch(
-                "http://127.0.0.1:8000/notifications",
+                `${API_URL}/notifications`,
                 {
+                    method: "GET",
                     headers: {
                         Authorization: `Bearer ${token}`,
+                        "Content-Type": "application/json",
                     },
                 }
             );
 
             if (!response.ok) {
-                throw new Error("Failed to fetch notifications");
+                throw new Error(
+                    `Failed to fetch notifications: ${response.status}`
+                );
             }
 
             const data = await response.json();
 
-            setNotifications(data);
-
+            setNotifications(
+                Array.isArray(data) ? data : []
+            );
         } catch (error) {
             console.error(
                 "Error fetching notifications:",
@@ -46,49 +58,80 @@ function Navbar() {
     // ==========================================
 
     useEffect(() => {
-        if (token) {
+        fetchNotifications();
+
+        // Refresh notifications every 30 seconds
+        const interval = setInterval(() => {
             fetchNotifications();
-        }
+        }, 30000);
+
+        return () => {
+            clearInterval(interval);
+        };
     }, []);
+
+    // ==========================================
+    // REFRESH WHEN BELL IS OPENED
+    // ==========================================
+
+    const toggleNotifications = async () => {
+        const newState = !showNotifications;
+
+        setShowNotifications(newState);
+
+        if (newState) {
+            await fetchNotifications();
+        }
+    };
 
     // ==========================================
     // MARK NOTIFICATION AS READ
     // ==========================================
 
     const markAsRead = async (notification) => {
-
         if (notification.is_read) {
             return;
         }
 
         try {
             const response = await fetch(
-                `http://127.0.0.1:8000/notifications/${notification.id}/read`,
+                `${API_URL}/notifications/${notification.id}/read`,
                 {
                     method: "PATCH",
                     headers: {
                         Authorization: `Bearer ${token}`,
+                        "Content-Type": "application/json",
                     },
                 }
             );
 
             if (!response.ok) {
                 throw new Error(
-                    "Failed to mark notification as read"
+                    `Failed to mark notification as read: ${response.status}`
                 );
             }
 
-            setNotifications((previousNotifications) =>
-                previousNotifications.map((item) =>
-                    item.id === notification.id
-                        ? {
-                            ...item,
-                            is_read: true
-                        }
-                        : item
-                )
-            );
+            let updatedNotification = null;
 
+            try {
+                updatedNotification =
+                    await response.json();
+            } catch {
+                // Backend may return an empty response
+            }
+
+            setNotifications(
+                (previousNotifications) =>
+                    previousNotifications.map((item) =>
+                        item.id === notification.id
+                            ? {
+                                  ...item,
+                                  ...(updatedNotification || {}),
+                                  is_read: true,
+                              }
+                            : item
+                    )
+            );
         } catch (error) {
             console.error(
                 "Error marking notification as read:",
@@ -102,31 +145,32 @@ function Navbar() {
     // ==========================================
 
     const deleteNotification = async (notificationId) => {
-
         try {
             const response = await fetch(
-                `http://127.0.0.1:8000/notifications/${notificationId}`,
+                `${API_URL}/notifications/${notificationId}`,
                 {
                     method: "DELETE",
                     headers: {
                         Authorization: `Bearer ${token}`,
+                        "Content-Type": "application/json",
                     },
                 }
             );
 
             if (!response.ok) {
                 throw new Error(
-                    "Failed to delete notification"
+                    `Failed to delete notification: ${response.status}`
                 );
             }
 
-            setNotifications((previousNotifications) =>
-                previousNotifications.filter(
-                    (notification) =>
-                        notification.id !== notificationId
-                )
+            setNotifications(
+                (previousNotifications) =>
+                    previousNotifications.filter(
+                        (notification) =>
+                            notification.id !==
+                            notificationId
+                    )
             );
-
         } catch (error) {
             console.error(
                 "Error deleting notification:",
@@ -143,6 +187,10 @@ function Navbar() {
         (notification) => !notification.is_read
     ).length;
 
+    // ==========================================
+    // UI
+    // ==========================================
+
     return (
         <div
             style={{
@@ -156,12 +204,11 @@ function Navbar() {
                 position: "relative",
             }}
         >
+            {/* PAGE TITLE */}
 
             <h2>Dashboard</h2>
 
-            {/* ======================================
-                RIGHT SIDE
-            ====================================== */}
+            {/* RIGHT SIDE */}
 
             <div
                 style={{
@@ -170,7 +217,6 @@ function Navbar() {
                     gap: "30px",
                 }}
             >
-
                 {/* ==================================
                     NOTIFICATION BELL
                 ================================== */}
@@ -181,11 +227,7 @@ function Navbar() {
                         cursor: "pointer",
                         fontSize: "28px",
                     }}
-                    onClick={() =>
-                        setShowNotifications(
-                            !showNotifications
-                        )
-                    }
+                    onClick={toggleNotifications}
                 >
                     🔔
 
@@ -214,9 +256,7 @@ function Navbar() {
                     )}
                 </div>
 
-                {/* ==================================
-                    LOGGED-IN USER
-                ================================== */}
+                {/* LOGGED-IN USER */}
 
                 <div
                     style={{
@@ -224,9 +264,9 @@ function Navbar() {
                         fontWeight: "500",
                     }}
                 >
-                    👤 Welcome, {user?.username || "User"}
+                    👤 Welcome,{" "}
+                    {user?.username || "User"}
                 </div>
-
             </div>
 
             {/* ======================================
@@ -234,7 +274,6 @@ function Navbar() {
             ====================================== */}
 
             {showNotifications && (
-
                 <div
                     style={{
                         position: "absolute",
@@ -250,7 +289,6 @@ function Navbar() {
                         zIndex: 1000,
                     }}
                 >
-
                     {/* HEADER */}
 
                     <div
@@ -258,8 +296,7 @@ function Navbar() {
                             padding: "20px",
                             fontSize: "22px",
                             fontWeight: "bold",
-                            borderBottom:
-                                "1px solid #ddd",
+                            borderBottom: "1px solid #ddd",
                         }}
                     >
                         Notifications
@@ -268,7 +305,6 @@ function Navbar() {
                     {/* NO NOTIFICATIONS */}
 
                     {notifications.length === 0 && (
-
                         <div
                             style={{
                                 padding: "25px",
@@ -284,38 +320,31 @@ function Navbar() {
 
                     {notifications.map(
                         (notification) => (
-
                             <div
                                 key={notification.id}
-
                                 onClick={() =>
                                     markAsRead(notification)
                                 }
-
                                 style={{
-                                    padding: "18px 55px 18px 20px",
+                                    padding:
+                                        "18px 55px 18px 20px",
                                     borderBottom:
                                         "1px solid #eee",
-
                                     cursor:
                                         notification.is_read
                                             ? "default"
                                             : "pointer",
-
                                     background:
                                         notification.is_read
                                             ? "white"
                                             : "#f3f6ff",
-
                                     position: "relative",
-
                                     opacity:
                                         notification.is_read
                                             ? "0.65"
                                             : "1",
                                 }}
                             >
-
                                 {/* NOTIFICATION TYPE */}
 
                                 <div
@@ -326,7 +355,9 @@ function Navbar() {
                                             "capitalize",
                                     }}
                                 >
-                                    {notification.notification_type}
+                                    {notification.notification_type ||
+                                        notification.type ||
+                                        "Notification"}
                                 </div>
 
                                 {/* MESSAGE */}
@@ -349,25 +380,25 @@ function Navbar() {
                                 >
                                     {notification.created_at
                                         ? new Date(
-                                            notification.created_at
-                                        ).toLocaleString()
-                                        : "Just now"
-                                    }
+                                              notification.created_at
+                                          ).toLocaleString()
+                                        : "Just now"}
                                 </div>
 
                                 {/* UNREAD RED DOT */}
 
                                 {!notification.is_read && (
-
                                     <span
                                         style={{
-                                            position: "absolute",
+                                            position:
+                                                "absolute",
                                             top: "25px",
                                             right: "45px",
                                             width: "10px",
                                             height: "10px",
                                             borderRadius: "50%",
-                                            background: "#d23c4a",
+                                            background:
+                                                "#d23c4a",
                                         }}
                                     />
                                 )}
@@ -388,21 +419,19 @@ function Navbar() {
                                         top: "18px",
                                         right: "12px",
                                         border: "none",
-                                        background: "transparent",
+                                        background:
+                                            "transparent",
                                         cursor: "pointer",
                                         fontSize: "18px",
                                     }}
                                 >
                                     🗑️
                                 </button>
-
                             </div>
                         )
                     )}
-
                 </div>
             )}
-
         </div>
     );
 }
