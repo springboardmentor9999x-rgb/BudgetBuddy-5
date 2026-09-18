@@ -1,43 +1,48 @@
 import os
-import resend
+import smtplib
+from email.mime.text import MIMEText
+from dotenv import load_dotenv
+
+load_dotenv()
+
+SMTP_EMAIL = os.getenv("SMTP_EMAIL")
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
 
 
-def send_otp_email(to_email: str, otp: str):
-    api_key = os.getenv("RESEND_API_KEY")
-    from_email = os.getenv(
-        "RESEND_FROM_EMAIL",
-        "onboarding@resend.dev"
-    )
+def send_otp_email(receiver_email: str, otp: str):
 
-    if not api_key:
-        raise RuntimeError("RESEND_API_KEY is not configured")
+    subject = "BudgetBuddy - Email Verification"
 
-    resend.api_key = api_key
+    body = f"""
+Hello,
 
-    params = {
-        "from": from_email,
-        "to": [to_email],
-        "subject": "Budget Buddy - Email Verification OTP",
-        "html": f"""
-        <html>
-        <body>
-            <h2>Budget Buddy</h2>
+Welcome to BudgetBuddy!
 
-            <p>Your email verification OTP is:</p>
+Your Email Verification Code is:
 
-            <h1>{otp}</h1>
+{otp}
 
-            <p>This OTP is valid for 10 minutes.</p>
+This OTP is valid for 10 minutes.
 
-            <p>If you did not create a Budget Buddy account,
-            please ignore this email.</p>
-        </body>
-        </html>
-        """
-    }
+If you didn't create this account, please ignore this email.
 
-    email = resend.Emails.send(params)
+Regards,
+BudgetBuddy Team
+"""
 
-    print("OTP email sent successfully:", email)
+    msg = MIMEText(body)
+    msg["Subject"] = subject
+    msg["From"] = SMTP_EMAIL
+    msg["To"] = receiver_email
 
-    return email
+    try:
+        with smtplib.SMTP("smtp.gmail.com", 587) as server:
+            server.starttls()
+            server.login(SMTP_EMAIL, SMTP_PASSWORD)
+            server.send_message(msg)
+
+        print("OTP email sent successfully.")
+
+    except Exception as e:
+        print("Email Error:", e)
+        raise
