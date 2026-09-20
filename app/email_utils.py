@@ -1,20 +1,20 @@
 import os
-import smtplib
-from email.mime.text import MIMEText
+import json
+import urllib.request
+import urllib.error
 from dotenv import load_dotenv
 
 load_dotenv()
 
-SMTP_EMAIL = os.getenv("SMTP_EMAIL")
-SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
+BREVO_API_KEY = os.getenv("BREVO_API_KEY")
+BREVO_FROM_EMAIL = os.getenv("BREVO_FROM_EMAIL")
 
 
 def send_otp_email(receiver_email: str, otp: str):
 
     subject = "BudgetBuddy - Email Verification"
 
-    body = f"""
-Hello,
+    body = f"""Hello,
 
 Welcome to BudgetBuddy!
 
@@ -30,18 +30,42 @@ Regards,
 BudgetBuddy Team
 """
 
-    msg = MIMEText(body)
-    msg["Subject"] = subject
-    msg["From"] = SMTP_EMAIL
-    msg["To"] = receiver_email
+    payload = {
+        "sender": {
+            "name": "BudgetBuddy",
+            "email": BREVO_FROM_EMAIL
+        },
+        "to": [
+            {
+                "email": receiver_email
+            }
+        ],
+        "subject": subject,
+        "textContent": body
+    }
+
+    data = json.dumps(payload).encode("utf-8")
+
+    request = urllib.request.Request(
+        "https://api.brevo.com/v3/smtp/email",
+        data=data,
+        headers={
+            "accept": "application/json",
+            "api-key": BREVO_API_KEY,
+            "content-type": "application/json"
+        },
+        method="POST"
+    )
 
     try:
-        with smtplib.SMTP("smtp.gmail.com", 587) as server:
-            server.starttls()
-            server.login(SMTP_EMAIL, SMTP_PASSWORD)
-            server.send_message(msg)
+        with urllib.request.urlopen(request, timeout=20) as response:
+            response_body = response.read().decode("utf-8")
+            print("OTP email sent successfully:", response_body)
 
-        print("OTP email sent successfully.")
+    except urllib.error.HTTPError as e:
+        error_body = e.read().decode("utf-8", errors="replace")
+        print("Brevo Email Error:", error_body)
+        raise
 
     except Exception as e:
         print("Email Error:", e)
